@@ -7,8 +7,7 @@ For any particular improvement you want to make, you can begin a discussion on t
 [MongoDB Developers Forum](https://groups.google.com/forum/?fromgroups#!forum/mongodb-dev).  This is the best place to discuss your proposed improvement (and its
 implementation) with the core development team.
 
-If you're interested in contributing, we have a list of some suggested tickets that are easy enough to get started on here:
-https://jira.mongodb.org/issues/?jql=project%20%3D%20TOOLS%20AND%20labels%20%3D%20community%20and%20status%20%3D%20open
+If you're interested in contributing, we have a list of some suggested tickets that are easy enough to get started on [here](https://jira.mongodb.org/issues/?jql=project%20%3D%20TOOLS%20AND%20labels%20%3D%20community%20and%20status%20%3D%20open)
 
 Getting Started
 ---------------
@@ -17,7 +16,7 @@ Getting Started
 2. Create a [Github account](https://github.com/signup/free).
 3. [Fork](https://help.github.com/articles/fork-a-repo/) the repository on Github at https://github.com/mongodb/mongo-tools.
 4. For more details see http://www.mongodb.org/about/contributors/.
-5. Submit a [pull request](https://help.github.com/articles/creating-a-pull-request/) against the project for review. Note: if you are a MongoDB Engineer, please use the internal code review tool instead of github.
+5. Submit a [pull request](https://help.github.com/articles/creating-a-pull-request/) against the project for review. Note: if you are a MongoDB engineer, please use the internal code review tool instead of github.
 
 JIRA Tickets
 ------------
