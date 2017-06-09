@@ -17,12 +17,13 @@ Getting Started
 2. Create a [Github account](https://github.com/signup/free).
 3. [Fork](https://help.github.com/articles/fork-a-repo/) the repository on Github at https://github.com/mongodb/mongo-tools.
 4. For more details see http://www.mongodb.org/about/contributors/.
+5. Submit a pull request against the project for review. Note: if you are a MongoDB Engineer, please use the internal code review tool instead of github.
 
 JIRA Tickets
 ------------
 
 1. File a JIRA ticket in the [TOOLS project](https://jira.mongodb.org/browse/TOOLS).
-2. All commit messages to the MongoDB Tools repository must be prefaced with the relevant JIRA ticket number e.g. "TOOLS-XXX: add support for xyz".
+2. All commit messages to the MongoDB Tools repository must be prefaced with the relevant JIRA ticket number e.g. "TOOLS-XXX add support for xyz".
 
 In filing JIRA tickets for bugs, please clearly describe the issue you are resolving, including the platforms on which the issue is present and clear steps to reproduce.
 
