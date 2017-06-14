@@ -29,32 +29,33 @@ func main() {
 		panic(err)
 	}
 
-	wg := sync.WaitGroup{}
+	wg := &sync.WaitGroup{}
 	for i := 0; i < *numConn; i++ {
-		d := func() {
-			fmt.Println("opening connection")
-			var flags openssl.DialFlags
-			flags = 0
-			conn, err := openssl.Dial("tcp", *addr, ctx, flags)
-			if err != nil {
-				fmt.Println("dial error: ", err)
-			}
-			fmt.Println("opened conn: ", conn.RemoteAddr())
-			time.Sleep(1)
-			conn.Close()
-			fmt.Println("closed conn: ", conn.RemoteAddr())
-			wg.Done()
-		}
 		if !*serial {
 			wg.Add(1)
-			go d()
+			go dialConn(*addr, ctx, wg, i)
 		} else {
 			wg.Add(1)
-			d()
+			dialConn(*addr, ctx, wg, i)
 		}
 	}
 	wg.Wait()
 	fmt.Println("done")
+}
+
+func dialConn(addr string, ctx *openssl.Ctx, wg *sync.WaitGroup, connNum int) {
+	fmt.Println("opening connection ", connNum)
+	var flags openssl.DialFlags
+	flags = 0
+	conn, err := openssl.Dial("tcp", addr, ctx, flags)
+	if err != nil {
+		fmt.Println("dial error: ", err)
+	}
+	fmt.Printf("opened conn: %d %s\n", connNum, conn.RemoteAddr())
+	time.Sleep(100000)
+	conn.Close()
+	fmt.Printf("closed conn: %d %s\n", connNum, conn.RemoteAddr())
+	wg.Done()
 }
 
 // Creates and configures an openssl.Ctx
