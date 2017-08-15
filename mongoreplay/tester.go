@@ -3,6 +3,7 @@ package mongoreplay
 import (
 	"fmt"
 	"io"
+	"runtime/pprof"
 )
 
 // TesterCommand stores settings for the mongoreplay 'test' subcommand
@@ -13,6 +14,7 @@ type TesterCommand struct {
 }
 
 func (tester *TesterCommand) Execute(args []string) error {
+
 	fmt.Println("hello")
 	playbackFileReader, err := NewPlaybackFileReader(tester.PlaybackFile, false)
 	if err != nil {
@@ -24,8 +26,7 @@ func (tester *TesterCommand) Execute(args []string) error {
 
 	opChan, errChan = NewOpChanFromFile(playbackFileReader, 1)
 
-	for op := range opChan {
-		fmt.Println(op)
+	for range opChan {
 		/*
 
 			put the relevant test thing to do here

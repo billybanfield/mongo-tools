@@ -2,13 +2,14 @@ package mongoreplay
 
 import (
 	"compress/gzip"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/10gen/llmgo/bson"
+	//	"github.com/10gen/llmgo/bson"
 	"github.com/google/gopacket/pcap"
 	"github.com/mongodb/mongo-tools/common/util"
 )
@@ -182,6 +183,8 @@ func (record *RecordCommand) Execute(args []string) error {
 func Record(ctx *packetHandlerContext,
 	playbackWriter *PlaybackWriter,
 	noShortenReply bool) error {
+	// make an encoder
+	gobEncoder := gob.NewEncoder(playbackWriter)
 
 	ch := make(chan error)
 	go func() {
@@ -202,12 +205,16 @@ func Record(ctx *packetHandlerContext,
 					continue
 				}
 			}
-			bsonBytes, err := bson.Marshal(op)
-			if err != nil {
-				userInfoLogger.Logvf(DebugLow, "stream %v error marshaling message: %v", op.SeenConnectionNum, err)
-				continue
-			}
-			_, err = playbackWriter.Write(bsonBytes)
+			//bsonBytes, err := bson.Marshal(op)
+			/*
+				if err != nil {
+					userInfoLogger.Logvf(DebugLow, "stream %v error marshaling message: %v", op.SeenConnectionNum, err)
+					continue
+				}
+
+					_, err = playbackWriter.Write(bsonBytes)
+			*/
+			err := gobEncoder.Encode(op)
 			if err != nil {
 				fail = fmt.Errorf("error writing message: %v", err)
 				userInfoLogger.Logvf(Always, "%v", err)
