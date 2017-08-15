@@ -2,13 +2,12 @@ package mongoreplay
 
 import (
 	"compress/gzip"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"os"
 	"time"
-
-	mgo "github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	//	"github.com/10gen/llmgo/bson"
 )
 
 // PlayCommand stores settings for the mongoreplay 'play' subcommand
@@ -120,6 +119,7 @@ func (g *GzipReadSeeker) Seek(offset int64, whence int) (int64, error) {
 // which is just an io.ReadCloser.
 type PlaybackFileReader struct {
 	io.ReadSeeker
+	decoder *gob.Decoder
 }
 
 // NewPlaybackFileReader initializes a new PlaybackFileReader
@@ -137,22 +137,25 @@ func NewPlaybackFileReader(filename string, gzip bool) (*PlaybackFileReader, err
 			return nil, err
 		}
 	}
-
-	return &PlaybackFileReader{readSeeker}, nil
+	decoder := gob.NewDecoder(readSeeker)
+	return &PlaybackFileReader{readSeeker, decoder}, nil
 }
 
 // NextRecordedOp iterates through the PlaybackFileReader to yield the next
 // RecordedOp. It returns io.EOF when successfully complete.
 func (file *PlaybackFileReader) NextRecordedOp() (*RecordedOp, error) {
-	buf, err := ReadDocument(file)
-	if err != nil {
-		if err != io.EOF {
-			err = fmt.Errorf("ReadDocument Error: %v", err)
+	/*
+		//buf, err := ReadDocument(file)
+		if err != nil {
+			if err != io.EOF {
+				err = fmt.Errorf("ReadDocument Error: %v", err)
+			}
+			return nil, err
 		}
-		return nil, err
-	}
+		//	err = bson.Unmarshal(buf, doc)
+	*/
 	doc := new(RecordedOp)
-	err = bson.Unmarshal(buf, doc)
+	err := file.decoder.Decode(doc)
 	if err != nil {
 		return nil, fmt.Errorf("Unmarshal RecordedOp Error: %v\n", err)
 	}
@@ -238,7 +241,7 @@ func (play *PlayCommand) Execute(args []string) error {
 	return nil
 }
 
-// Play is responsible for playing ops from a RecordedOp channel to the session.
+// Play is responsible for playing ops from a RecordedOp channel to the socket.
 func Play(context *ExecutionContext,
 	opChan <-chan *RecordedOp,
 	speed float64,

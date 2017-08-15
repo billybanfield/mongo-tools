@@ -1,8 +1,6 @@
 package mongoreplay
 
-import (
-	mgo "github.com/10gen/llmgo"
-)
+import ()
 
 // TesterCommand stores settings for the mongoreplay 'test' subcommand
 type TesterCommand struct {
@@ -12,41 +10,4 @@ type TesterCommand struct {
 }
 
 func (tester *TesterCommand) Execute(args []string) error {
-	conns := 4000
-	sessions := make([]*mgo.Session, conns)
-
-	for i := 0; i < conns; i++ {
-		session, err := mgo.Dial(tester.URL)
-		if err != nil {
-			panic(err)
-		}
-		sessions[i] = session
-	}
-	for _, session := range sessions {
-		session.Close()
-	}
-	return nil
 }
-
-/*
-func (tester *TesterCommand) Execute(args []string) error {
-	conns := 4000
-	session, err := mgo.Dial(tester.URL)
-	if err != nil {
-		panic(err)
-	}
-	sockets := make([]*mgo.MongoSocket, conns)
-
-	for i := 0; i < conns; i++ {
-		socket, err := session.AcquireSocketDirect()
-		if err != nil {
-			panic(err)
-		}
-		sockets[i] = socket
-	}
-	for _, socket := range sockets {
-		socket.Close()
-	}
-	return nil
-}
-*/
