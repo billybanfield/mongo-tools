@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	//	"github.com/10gen/llmgo/bson"
 	"github.com/google/gopacket/pcap"
 	"github.com/mongodb/mongo-tools/common/util"
 )

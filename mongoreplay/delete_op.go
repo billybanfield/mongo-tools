@@ -6,7 +6,7 @@ import (
 	"io"
 
 	mgo "github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // DeleteOp is used to remove one or more documents from a collection.

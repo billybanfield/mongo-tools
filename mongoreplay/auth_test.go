@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	mgo "github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // TestCommandsAgainstAuthedDBWhenAuthed tests some basic commands against a

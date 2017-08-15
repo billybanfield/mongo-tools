@@ -7,7 +7,7 @@ import (
 	"time"
 
 	mgo "github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // CommandOp is a struct for parsing OP_COMMAND as defined here:

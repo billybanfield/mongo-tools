@@ -9,7 +9,7 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/10gen/llmgo"
+	mgo "github.com/10gen/llmgo"
 )
 
 // PlayCommand stores settings for the mongoreplay 'play' subcommand

@@ -6,7 +6,7 @@ import (
 	"io"
 
 	mgo "github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // InsertOp is used to insert one or more documents into a collection.

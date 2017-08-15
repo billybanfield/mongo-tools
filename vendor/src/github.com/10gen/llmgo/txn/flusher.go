@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 func flush(r *Runner, t *transaction) error {
