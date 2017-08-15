@@ -146,17 +146,19 @@ func (context *ExecutionContext) newExecutionSession(url string, start time.Time
 
 	context.SessionChansWaitGroup.Add(1)
 	go func() {
-		now := time.Now()
 		var connected bool
-		time.Sleep(start.Add(-5 * time.Second).Sub(now)) // Sleep until five seconds before the start time
-		session, err := mgo.Dial(url)
-		if err == nil {
-			userInfoLogger.Logvf(Info, "(Connection %v) New connection CREATED.", connectionNum)
-			connected = true
-			defer session.Close()
-		} else {
-			userInfoLogger.Logvf(Info, "(Connection %v) New Connection FAILED: %v", connectionNum, err)
-		}
+		/*
+			now := time.Now()
+				time.Sleep(start.Add(-50 * time.Millisecond).Sub(now)) // Sleep until five seconds before the start time
+				session, err := mgo.DialWithTimeout(url, time.Second*0)
+				if err == nil {
+					userInfoLogger.Logvf(Info, "(Connection %v) New connection CREATED.", connectionNum)
+					connected = true
+					defer session.Close()
+				} else {
+					userInfoLogger.Logvf(Info, "(Connection %v) New Connection FAILED on url %v: %v", connectionNum, url, err)
+				}
+		*/
 		for recordedOp := range ch {
 			var parsedOp Op
 			var reply Replyable
@@ -173,6 +175,7 @@ func (context *ExecutionContext) newExecutionSession(url string, start time.Time
 					}
 				}
 				userInfoLogger.Logvf(DebugHigh, "(Connection %v) op %v", connectionNum, recordedOp.String())
+				var session *mgo.Session
 				session.SetSocketTimeout(0)
 				parsedOp, reply, err = context.Execute(recordedOp, session)
 				if err != nil {

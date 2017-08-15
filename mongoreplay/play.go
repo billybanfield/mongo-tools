@@ -44,14 +44,15 @@ func NewOpChanFromFile(file *PlaybackFileReader, repeat int) (<-chan *RecordedOp
 			defer close(ch)
 			toolDebugLogger.Logv(Info, "Beginning tapefile read")
 			for generation := 0; generation < repeat; generation++ {
-				_, err := file.Seek(0, 0)
+				var err error
+				//_, err := file.Seek(0, 0)
 				if err != nil {
 					return fmt.Errorf("PlaybackFile Seek: %v", err)
 				}
 
 				var order int64
 				for {
-					recordedOp, err := file.NextRecordedOp()
+					recordedOp := file.NextRecordedOp()
 					if err != nil {
 						if err == io.EOF {
 							break
@@ -119,6 +120,7 @@ func (g *GzipReadSeeker) Seek(offset int64, whence int) (int64, error) {
 // which is just an io.ReadCloser.
 type PlaybackFileReader struct {
 	io.ReadSeeker
+	recordedOpsChan chan *RecordedOp
 }
 
 // NewPlaybackFileReader initializes a new PlaybackFileReader
@@ -136,27 +138,48 @@ func NewPlaybackFileReader(filename string, gzip bool) (*PlaybackFileReader, err
 			return nil, err
 		}
 	}
+	//here we have the reader that can get us bytes from the file
+	//now, make a goroutine that will pass unprocessed ops to the reader threads
+	fileReadChan := make(chan []byte, 40)
 
-	return &PlaybackFileReader{readSeeker}, nil
+	go func() {
+		// read the next bson doc size bytes
+		for {
+			nextDoc, err := ReadDocument(readSeeker)
+			if err != nil {
+				panic(err)
+			}
+			// pass the slice of bytes into the channel
+			fileReadChan <- nextDoc
+		}
+	}()
+
+	pfReader := &PlaybackFileReader{
+		ReadSeeker:      readSeeker,
+		recordedOpsChan: make(chan *RecordedOp),
+	}
+
+	for i := 0; i < 40; i++ {
+		go func() {
+			for nextDocAsBytes := range fileReadChan {
+				doc := new(RecordedOp)
+				err = bson.Unmarshal(nextDocAsBytes, doc)
+				if err != nil {
+					continue
+					//				return nil, fmt.Errorf("Unmarshal RecordedOp Error: %v\n", err)
+				}
+				pfReader.recordedOpsChan <- doc
+			}
+		}()
+	}
+
+	return pfReader, nil
 }
 
 // NextRecordedOp iterates through the PlaybackFileReader to yield the next
 // RecordedOp. It returns io.EOF when successfully complete.
-func (file *PlaybackFileReader) NextRecordedOp() (*RecordedOp, error) {
-	buf, err := ReadDocument(file)
-	if err != nil {
-		if err != io.EOF {
-			err = fmt.Errorf("ReadDocument Error: %v", err)
-		}
-		return nil, err
-	}
-	doc := new(RecordedOp)
-	err = bson.Unmarshal(buf, doc)
-	if err != nil {
-		return nil, fmt.Errorf("Unmarshal RecordedOp Error: %v\n", err)
-	}
-
-	return doc, nil
+func (file *PlaybackFileReader) NextRecordedOp() *RecordedOp {
+	return <-file.recordedOpsChan
 }
 
 // ValidateParams validates the settings described in the PlayCommand struct.
