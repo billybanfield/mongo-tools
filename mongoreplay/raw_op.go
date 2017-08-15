@@ -6,7 +6,7 @@ import (
 	"io"
 
 	mgo "github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 const maxBSONSize = 16 * 1024 * 1024 // 16MB - maximum BSON document size

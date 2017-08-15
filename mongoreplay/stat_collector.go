@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // TruncateLength is the maximum number of characters allowed for long

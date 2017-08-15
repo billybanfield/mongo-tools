@@ -15,7 +15,7 @@ import (
 	"sync"
 
 	"github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 
 	crand "crypto/rand"
 	mrand "math/rand"

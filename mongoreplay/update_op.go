@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // UpdateOp is used to update a document in a collection.

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	mgo "github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // ReplyOp is sent by the database in response to an QueryOp or OpGetMore message.

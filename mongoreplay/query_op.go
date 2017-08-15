@@ -7,7 +7,7 @@ import (
 	"time"
 
 	mgo "github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 	"github.com/mongodb/mongo-tools/common/json"
 )
 

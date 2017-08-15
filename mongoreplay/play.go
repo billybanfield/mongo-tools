@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // PlayCommand stores settings for the mongoreplay 'play' subcommand

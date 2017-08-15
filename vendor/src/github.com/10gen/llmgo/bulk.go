@@ -3,7 +3,7 @@ package mgo
 import (
 	"bytes"
 
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // Bulk represents an operation that can be prepared with several

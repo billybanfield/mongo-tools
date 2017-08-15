@@ -3,7 +3,7 @@ package txn_test
 import (
 	"flag"
 	"github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 	"github.com/10gen/llmgo/txn"
 	. "gopkg.in/check.v1"
 	"math/rand"

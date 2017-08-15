@@ -33,7 +33,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	"github.com/10gen/llmgo"
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 func (s *S) TestGridFSCreate(c *C) {
