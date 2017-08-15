@@ -24,8 +24,7 @@ func (tester *TesterCommand) Execute(args []string) error {
 
 	opChan, errChan = NewOpChanFromFile(playbackFileReader, 1)
 
-	for op := range opChan {
-		fmt.Println(op)
+	for range opChan {
 		/*
 
 			put the relevant test thing to do here
