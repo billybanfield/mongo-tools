@@ -48,6 +48,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	_, err = parser.AddCommand("test", "a test command", "",
+		&mongoreplay.TesterCommand{GlobalOpts: &opts})
+	if err != nil {
+		panic(err)
+	}
 
 	_, err = parser.Parse()
 
