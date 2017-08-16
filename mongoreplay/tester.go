@@ -28,19 +28,25 @@ func (tester *TesterCommand) Execute(args []string) error {
 	return nil
 }
 
+/*
 func (tester *TesterCommand) Execute(args []string) error {
 	conns := 4000
-	sessions := make([]*mgo.Session, conns)
+	session, err := mgo.Dial(tester.URL)
+	if err != nil {
+		panic(err)
+	}
+	sockets := make([]*mgo.MongoSocket, conns)
 
 	for i := 0; i < conns; i++ {
-		socket, err := session.AcquireT(tester.URL)
+		socket, err := session.AcquireSocketDirect()
 		if err != nil {
 			panic(err)
 		}
-		sessions[i] = session
+		sockets[i] = socket
 	}
-	for _, session := range sessions {
-		session.Close()
+	for _, socket := range sockets {
+		socket.Close()
 	}
 	return nil
 }
+*/
