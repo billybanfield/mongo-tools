@@ -151,7 +151,7 @@ func (context *ExecutionContext) newExecutionSession(start time.Time, connection
 		now := time.Now()
 		var connected bool
 		time.Sleep(start.Add(-5 * time.Second).Sub(now)) // Sleep until five seconds before the start time
-		socket, err := context.session.AcquireSocketPrivate(true)
+		socket, err := context.session.AcquireSocketDirect()
 		if err == nil {
 			userInfoLogger.Logvf(Info, "(Connection %v) New connection CREATED.", connectionNum)
 			connected = true

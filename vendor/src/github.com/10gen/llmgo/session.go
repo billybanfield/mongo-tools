@@ -4231,6 +4231,14 @@ func (s *Session) AcquireSocketPrivate(slaveOk bool) (*MongoSocket, error) {
 	return sock, nil
 }
 
+func (s *Session) AcquireSocketDirect() (*MongoSocket, error) {
+	sock, err := s.cluster().AcquireSocket(Strong, true, s.syncTimeout, s.sockTimeout, s.queryConfig.op.ServerTags, s.poolLimit)
+	if err != nil {
+		return nil, err
+	}
+	return sock, nil
+}
+
 // setSocket binds socket to this section.
 func (s *Session) setSocket(socket *MongoSocket) {
 	info := socket.Acquire()
