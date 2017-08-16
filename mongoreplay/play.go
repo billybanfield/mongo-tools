@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	mgo "github.com/10gen/llmgo"
 	"github.com/10gen/llmgo/bson"
 )
 
@@ -191,7 +192,13 @@ func (play *PlayCommand) Execute(args []string) error {
 		return err
 	}
 
-	context := NewExecutionContext(statColl)
+	session, err := mgo.Dial(play.URL)
+	if err != nil {
+		return err
+	}
+	session.SetSocketTimeout(0)
+
+	context := NewExecutionContext(statColl, session)
 
 	var opChan <-chan *RecordedOp
 	var errChan <-chan error
@@ -219,7 +226,7 @@ func (play *PlayCommand) Execute(args []string) error {
 
 	opChan, errChan = NewOpChanFromFile(playbackFileReader, play.Repeat)
 
-	if err := Play(context, opChan, play.Speed, play.URL, play.Repeat, play.QueueTime); err != nil {
+	if err := Play(context, opChan, play.Speed, play.Repeat, play.QueueTime); err != nil {
 		userInfoLogger.Logvf(Always, "Play: %v\n", err)
 	}
 
@@ -231,12 +238,10 @@ func (play *PlayCommand) Execute(args []string) error {
 	return nil
 }
 
-// Play is responsible for playing ops from a RecordedOp channel to the
-// given url.
+// Play is responsible for playing ops from a RecordedOp channel to the session.
 func Play(context *ExecutionContext,
 	opChan <-chan *RecordedOp,
 	speed float64,
-	url string,
 	repeat int,
 	queueTime int) error {
 
@@ -279,7 +284,7 @@ func Play(context *ExecutionContext,
 		sessionChan, ok := sessionChans[op.SeenConnectionNum]
 		if !ok {
 			connectionID++
-			sessionChan = context.newExecutionSession(url, op.PlayAt.Time, connectionID)
+			sessionChan = context.newExecutionSession(op.PlayAt.Time, connectionID)
 			sessionChans[op.SeenConnectionNum] = sessionChan
 		}
 		if op.EOF {

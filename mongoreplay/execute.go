@@ -43,15 +43,18 @@ type ExecutionContext struct {
 	SessionChansWaitGroup sync.WaitGroup
 
 	*StatCollector
+
+	session *mgo.Session
 }
 
 // NewExecutionContext initializes a new ExecutionContext.
-func NewExecutionContext(statColl *StatCollector) *ExecutionContext {
+func NewExecutionContext(statColl *StatCollector, session *mgo.Session) *ExecutionContext {
 	return &ExecutionContext{
 		IncompleteReplies: cache.New(60*time.Second, 60*time.Second),
 		CompleteReplies:   map[string]*ReplyPair{},
 		CursorIDMap:       newCursorCache(),
 		StatCollector:     statColl,
+		session:           session,
 	}
 }
 
@@ -140,20 +143,19 @@ func (context *ExecutionContext) handleCompletedReplies() error {
 	return nil
 }
 
-func (context *ExecutionContext) newExecutionSession(url string, start time.Time, connectionNum int64) chan<- *RecordedOp {
-
+func (context *ExecutionContext) newExecutionSession(start time.Time, connectionNum int64) chan<- *RecordedOp {
 	ch := make(chan *RecordedOp, 10000)
-
 	context.SessionChansWaitGroup.Add(1)
+
 	go func() {
 		now := time.Now()
 		var connected bool
 		time.Sleep(start.Add(-5 * time.Second).Sub(now)) // Sleep until five seconds before the start time
-		session, err := mgo.Dial(url)
+		socket, err := context.session.AcquireSocketPrivate(true)
 		if err == nil {
 			userInfoLogger.Logvf(Info, "(Connection %v) New connection CREATED.", connectionNum)
 			connected = true
-			defer session.Close()
+			defer socket.Close()
 		} else {
 			userInfoLogger.Logvf(Info, "(Connection %v) New Connection FAILED: %v", connectionNum, err)
 		}
@@ -173,8 +175,7 @@ func (context *ExecutionContext) newExecutionSession(url string, start time.Time
 					}
 				}
 				userInfoLogger.Logvf(DebugHigh, "(Connection %v) op %v", connectionNum, recordedOp.String())
-				session.SetSocketTimeout(0)
-				parsedOp, reply, err = context.Execute(recordedOp, session)
+				parsedOp, reply, err = context.Execute(recordedOp, socket)
 				if err != nil {
 					toolDebugLogger.Logvf(Always, "context.Execute error: %v", err)
 				}
@@ -184,7 +185,7 @@ func (context *ExecutionContext) newExecutionSession(url string, start time.Time
 					toolDebugLogger.Logvf(Always, "Execution Session error: %v", err)
 				}
 
-				msg = fmt.Sprintf("Skipped on non-connected session (Connection %v)", connectionNum)
+				msg = fmt.Sprintf("Skipped on non-connected socket (Connection %v)", connectionNum)
 				toolDebugLogger.Logv(Always, msg)
 			}
 			if shouldCollectOp(parsedOp) {
@@ -197,8 +198,8 @@ func (context *ExecutionContext) newExecutionSession(url string, start time.Time
 	return ch
 }
 
-// Execute plays a particular command on an mgo session.
-func (context *ExecutionContext) Execute(op *RecordedOp, session *mgo.Session) (Op, Replyable, error) {
+// Execute plays a particular command on an mgo socket.
+func (context *ExecutionContext) Execute(op *RecordedOp, socket *mgo.MongoSocket) (Op, Replyable, error) {
 	opToExec, err := op.RawOp.Parse()
 	var reply Replyable
 
@@ -230,7 +231,7 @@ func (context *ExecutionContext) Execute(op *RecordedOp, session *mgo.Session) (
 
 		op.PlayedAt = &PreciseTime{time.Now()}
 
-		reply, err = opToExec.Execute(session)
+		reply, err = opToExec.Execute(socket)
 
 		if err != nil {
 			context.CursorIDMap.MarkFailed(op)
@@ -243,6 +244,5 @@ func (context *ExecutionContext) Execute(op *RecordedOp, session *mgo.Session) (
 
 	}
 	context.handleCompletedReplies()
-
 	return opToExec, reply, nil
 }

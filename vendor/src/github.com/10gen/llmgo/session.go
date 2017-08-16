@@ -643,17 +643,12 @@ func (db *Database) Run(cmd interface{}, result interface{}) error {
 	return err
 }
 
-func ExecOpWithReply(s MongoSession, op OpWithReply) (m []byte, c []byte, data [][]byte, reply interface{}, err error) {
+func ExecOpWithReply(socket *MongoSocket, op OpWithReply) (m []byte, c []byte, data [][]byte, reply interface{}, err error) {
 	var wait sync.Mutex
 	var metaData []byte
 	var commandData []byte
 	var replyData [][]byte
 	var replyErr error
-	socket, err := s.AcquireSocketPrivate(true)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	defer socket.Release()
 
 	wait.Lock()
 
@@ -705,14 +700,8 @@ func ExecOpWithReply(s MongoSession, op OpWithReply) (m []byte, c []byte, data [
 	return metaData, commandData, replyData, reply, replyErr
 }
 
-func ExecOpWithoutReply(s MongoSession, op interface{}) error {
-	socket, err := s.AcquireSocketPrivate(true)
-	if err != nil {
-		return err
-	}
-	defer socket.Release()
-
-	err = socket.Query(op)
+func ExecOpWithoutReply(socket *MongoSocket, op interface{}) error {
+	err := socket.Query(op)
 	if err != nil {
 		return err
 	}
