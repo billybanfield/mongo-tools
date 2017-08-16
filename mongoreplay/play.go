@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/pprof"
 	"time"
-	//	"github.com/10gen/llmgo/bson"
+
+	"github.com/10gen/llmgo"
 )
 
 // PlayCommand stores settings for the mongoreplay 'play' subcommand
@@ -183,11 +185,19 @@ func (play *PlayCommand) Execute(args []string) error {
 		return err
 	}
 	play.GlobalOpts.SetLogging()
+	f, err := os.Create(play.GlobalOpts.CPUProfileFname)
+	if err != nil {
+		panic(err)
+	}
+
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
 
 	statColl, err := newStatCollector(play.StatOptions, play.Collect, true, true)
 	if err != nil {
 		return err
 	}
+
 	userInfoLogger.Logvf(Always, "Doing playback at %.2fx speed", play.Speed)
 
 	playbackFileReader, err := NewPlaybackFileReader(play.PlaybackFile, play.Gzip)

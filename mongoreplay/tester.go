@@ -10,4 +10,5 @@ type TesterCommand struct {
 }
 
 func (tester *TesterCommand) Execute(args []string) error {
+	return nil
 }
