@@ -159,7 +159,10 @@ func (file *PlaybackFileReader) NextRecordedOp() (*RecordedOp, error) {
 	doc := new(RecordedOp)
 	err := file.decoder.Decode(doc)
 	if err != nil {
-		return nil, fmt.Errorf("Unmarshal RecordedOp Error: %v\n", err)
+		if err != io.EOF {
+			err = fmt.Errorf("ReadDocument Error: %v", err)
+		}
+		return nil, err
 	}
 
 	return doc, nil
