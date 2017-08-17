@@ -47,6 +47,7 @@ func NewOpChanFromFile(file *PlaybackFileReader, repeat int) (<-chan *RecordedOp
 			toolDebugLogger.Logv(Info, "Beginning tapefile read")
 			for generation := 0; generation < repeat; generation++ {
 				_, err := file.Seek(0, 0)
+				file.decoder = gob.NewDecoder(file.ReadSeeker)
 				if err != nil {
 					return fmt.Errorf("PlaybackFile Seek: %v", err)
 				}
@@ -139,8 +140,7 @@ func NewPlaybackFileReader(filename string, gzip bool) (*PlaybackFileReader, err
 			return nil, err
 		}
 	}
-	decoder := gob.NewDecoder(readSeeker)
-	return &PlaybackFileReader{readSeeker, decoder}, nil
+	return &PlaybackFileReader{readSeeker, nil}, nil
 }
 
 // NextRecordedOp iterates through the PlaybackFileReader to yield the next
