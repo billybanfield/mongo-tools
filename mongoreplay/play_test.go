@@ -2,46 +2,49 @@ package mongoreplay
 
 import (
 	"bytes"
+	"encoding/gob"
 	"io"
 	"testing"
 	"time"
-
-	"gopkg.in/mgo.v2/bson"
 )
 
 func TestRepeatGeneration(t *testing.T) {
 	recOp := &RecordedOp{
 		Seen: &PreciseTime{time.Now()},
 	}
-	bsonBytes, err := bson.Marshal(recOp)
+	var buf bytes.Buffer
+	encoder := gob.NewEncoder(&buf)
+	err := encoder.Encode(recOp)
 	if err != nil {
-		t.Errorf("couldn't marshal %v", err)
+		t.Fatalf("couldn't marshal %v", err)
 	}
-	playbackReader := &PlaybackFileReader{bytes.NewReader(bsonBytes)}
+	reader := bytes.NewReader(buf.Bytes())
+	decoder := gob.NewDecoder(reader)
+	playbackReader := &PlaybackFileReader{reader, decoder}
 
 	repeat := 2
 	opChan, errChan := NewOpChanFromFile(playbackReader, repeat)
 	op1, ok := <-opChan
 	if !ok {
-		t.Errorf("read of 0-generation op failed")
+		t.Fatalf("read of 0-generation op failed")
 	}
 	if op1.Generation != 0 {
-		t.Errorf("generation of 0 generation op is %v", op1.Generation)
+		t.Fatalf("generation of 0 generation op is %v", op1.Generation)
 	}
 	op2, ok := <-opChan
 	if !ok {
-		t.Errorf("read of 1-generation op failed")
+		t.Fatalf("read of 1-generation op failed")
 	}
 	if op2.Generation != 1 {
-		t.Errorf("generation of 1 generation op is %v", op2.Generation)
+		t.Fatalf("generation of 1 generation op is %v", op2.Generation)
 	}
 	_, ok = <-opChan
 	if ok {
-		t.Errorf("Successfully read past end of op chan")
+		t.Fatalf("Successfully read past end of op chan")
 	}
 	err = <-errChan
 	if err != io.EOF {
-		t.Errorf("should have eof at end, but got %v", err)
+		t.Fatalf("should have eof at end, but got %v", err)
 	}
 }
 
@@ -53,46 +56,48 @@ func TestPlayOpEOF(t *testing.T) {
 		EOF:  true,
 	}}
 	var buf bytes.Buffer
+	encoder := gob.NewEncoder(&buf)
 	for _, op := range ops {
-		bsonBytes, err := bson.Marshal(op)
+		err := encoder.Encode(op)
 		if err != nil {
-			t.Errorf("couldn't marshal op %v", err)
+			t.Fatalf("couldn't marshal op %v", err)
 		}
-		buf.Write(bsonBytes)
 	}
-	playbackReader := &PlaybackFileReader{bytes.NewReader(buf.Bytes())}
+	reader := bytes.NewReader(buf.Bytes())
+	decoder := gob.NewDecoder(reader)
+	playbackReader := &PlaybackFileReader{reader, decoder}
 
 	repeat := 2
 	opChan, errChan := NewOpChanFromFile(playbackReader, repeat)
 
 	op1, ok := <-opChan
 	if !ok {
-		t.Errorf("read of op1 failed")
+		t.Fatalf("read of op1 failed")
 	}
 	if op1.EOF {
-		t.Errorf("op1 should not be an EOF op")
+		t.Fatalf("op1 should not be an EOF op")
 	}
 	op2, ok := <-opChan
 	if !ok {
-		t.Errorf("read op2 failed")
+		t.Fatalf("read op2 failed")
 	}
 	if op2.EOF {
-		t.Errorf("op2 should not be an EOF op")
+		t.Fatalf("op2 should not be an EOF op")
 	}
 	op3, ok := <-opChan
 	if !ok {
-		t.Errorf("read of op3 failed")
+		t.Fatalf("read of op3 failed")
 	}
 	if !op3.EOF {
-		t.Errorf("op3 is not an EOF op")
+		t.Fatalf("op3 is not an EOF op")
 	}
 
 	_, ok = <-opChan
 	if ok {
-		t.Errorf("Successfully read past end of op chan")
+		t.Fatalf("Successfully read past end of op chan")
 	}
 	err := <-errChan
 	if err != io.EOF {
-		t.Errorf("should have eof at end, but got %v", err)
+		t.Fatalf("should have eof at end, but got %v", err)
 	}
 }

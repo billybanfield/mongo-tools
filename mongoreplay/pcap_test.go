@@ -211,7 +211,11 @@ func pcapTestHelper(t *testing.T, pcapFname string, preprocess bool, verifier ve
 
 	statCollector, _ := newStatCollector(testCollectorOpts, "format", true, true)
 	statRec := statCollector.StatRecorder.(*BufferedStatRecorder)
-	context := NewExecutionContext(statCollector)
+	session, err := mgo.Dial(currentTestURL)
+	if err != nil {
+		t.Errorf("Error connecting to test server: %v", err)
+	}
+	context := NewExecutionContext(statCollector, session)
 
 	var preprocessMap preprocessCursorManager
 	if preprocess {
@@ -237,7 +241,7 @@ func pcapTestHelper(t *testing.T, pcapFname string, preprocess bool, verifier ve
 	opChan, errChan := NewOpChanFromFile(playbackReader, 1)
 
 	t.Log("Reading ops from playback file")
-	err = Play(context, opChan, testSpeed, currentTestURL, 1, 30)
+	err = Play(context, opChan, testSpeed, 1, 30)
 	if err != nil {
 		t.Errorf("error playing back recorded file: %v\n", err)
 	}
@@ -246,10 +250,6 @@ func pcapTestHelper(t *testing.T, pcapFname string, preprocess bool, verifier ve
 		t.Errorf("error reading ops from file: %v\n", err)
 	}
 	//prepare a query for the database
-	session, err := mgo.Dial(currentTestURL)
-	if err != nil {
-		t.Errorf("Error connecting to test server: %v", err)
-	}
 	verifier(t, session, statRec, &preprocessMap)
 
 	if err := teardownDB(); err != nil {

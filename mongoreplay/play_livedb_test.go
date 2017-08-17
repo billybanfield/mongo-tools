@@ -182,21 +182,21 @@ func TestOpInsertLiveDB(t *testing.T) {
 
 	statCollector, _ := newStatCollector(testCollectorOpts, "format", true, true)
 	statRec := statCollector.StatRecorder.(*BufferedStatRecorder)
-	context := NewExecutionContext(statCollector)
+	session, err := mgo.DialWithTimeout(currentTestURL, 30*time.Second)
+	if err != nil {
+		t.Errorf("Error connecting to test server: %v", err)
+	}
+	context := NewExecutionContext(statCollector, session)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
-	err := Play(context, generator.opChan, testSpeed, currentTestURL, 1, 10)
+	err = Play(context, generator.opChan, testSpeed, 1, 10)
 	if err != nil {
 		t.Errorf("Error Playing traffic: %v\n", err)
 	}
 	t.Log("Completed mongoreplay playback of generated traffic")
 
 	// prepare a query for the database
-	session, err := mgo.DialWithTimeout(currentTestURL, 30*time.Second)
-	if err != nil {
-		t.Errorf("Error connecting to test server: %v", err)
-	}
 
 	coll := session.DB(testDB).C(testCollection)
 
@@ -298,22 +298,21 @@ func TestUpdateOpLiveDB(t *testing.T) {
 
 	statCollector, _ := newStatCollector(testCollectorOpts, "format", true, true)
 	statRec := statCollector.StatRecorder.(*BufferedStatRecorder)
-	context := NewExecutionContext(statCollector)
+	session, err := mgo.DialWithTimeout(currentTestURL, 30*time.Second)
+	if err != nil {
+		t.Errorf("Error connecting to test server: %v", err)
+	}
+	context := NewExecutionContext(statCollector, session)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
-	err := Play(context, generator.opChan, testSpeed, currentTestURL, 1, 10)
+	err = Play(context, generator.opChan, testSpeed, 1, 10)
 	if err != nil {
 		t.Errorf("Error Playing traffic: %v\n", err)
 	}
 	t.Log("Completed mongoreplay playback of generated traffic")
 
 	// prepare a query for the database
-	session, err := mgo.DialWithTimeout(currentTestURL, 30*time.Second)
-	if err != nil {
-		t.Errorf("Error connecting to test server: %v", err)
-	}
-
 	coll := session.DB(testDB).C(testCollection)
 
 	iter := coll.Find(bson.D{}).Sort("docNum").Iter()
@@ -401,11 +400,15 @@ func TestQueryOpLiveDB(t *testing.T) {
 
 	statCollector, _ := newStatCollector(testCollectorOpts, "format", true, true)
 	statRec := statCollector.StatRecorder.(*BufferedStatRecorder)
-	context := NewExecutionContext(statCollector)
+	session, err := mgo.Dial(currentTestURL)
+	if err != nil {
+		t.Errorf("Error connecting to test server: %v", err)
+	}
+	context := NewExecutionContext(statCollector, session)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
-	err := Play(context, generator.opChan, testSpeed, currentTestURL, 1, 10)
+	err = Play(context, generator.opChan, testSpeed, 1, 10)
 	if err != nil {
 		t.Errorf("Error Playing traffic: %v\n", err)
 	}
@@ -489,11 +492,15 @@ func TestOpGetMoreLiveDB(t *testing.T) {
 	}()
 	statCollector, _ := newStatCollector(testCollectorOpts, "format", true, true)
 	statRec := statCollector.StatRecorder.(*BufferedStatRecorder)
-	context := NewExecutionContext(statCollector)
+	session, err := mgo.Dial(currentTestURL)
+	if err != nil {
+		t.Errorf("Error connecting to test server: %v", err)
+	}
+	context := NewExecutionContext(statCollector, session)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
-	err := Play(context, generator.opChan, testSpeed, currentTestURL, 1, 10)
+	err = Play(context, generator.opChan, testSpeed, 1, 10)
 	if err != nil {
 		t.Errorf("Error Playing traffic: %v\n", err)
 	}
@@ -590,11 +597,15 @@ func TestOpGetMoreMultiCursorLiveDB(t *testing.T) {
 	}()
 	statCollector, _ := newStatCollector(testCollectorOpts, "format", true, true)
 	statRec := statCollector.StatRecorder.(*BufferedStatRecorder)
-	context := NewExecutionContext(statCollector)
+	session, err := mgo.Dial(currentTestURL)
+	if err != nil {
+		t.Errorf("Error connecting to test server: %v", err)
+	}
+	context := NewExecutionContext(statCollector, session)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
-	err := Play(context, generator.opChan, testSpeed, currentTestURL, 1, 10)
+	err = Play(context, generator.opChan, testSpeed, 1, 10)
 	if err != nil {
 		t.Errorf("Error Playing traffic: %v\n", err)
 	}
@@ -711,11 +722,15 @@ func TestOpKillCursorsLiveDB(t *testing.T) {
 	}()
 	statCollector, _ := newStatCollector(testCollectorOpts, "format", true, true)
 	statRec := statCollector.StatRecorder.(*BufferedStatRecorder)
-	context := NewExecutionContext(statCollector)
+	session, err := mgo.Dial(currentTestURL)
+	if err != nil {
+		t.Errorf("Error connecting to test server: %v", err)
+	}
+	context := NewExecutionContext(statCollector, session)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
-	err := Play(context, generator.opChan, testSpeed, currentTestURL, 1, 10)
+	err = Play(context, generator.opChan, testSpeed, 1, 10)
 	if err != nil {
 		t.Errorf("Error Playing traffic: %v\n", err)
 	}
@@ -777,21 +792,21 @@ func TestCommandOpInsertLiveDB(t *testing.T) {
 
 	statCollector, _ := newStatCollector(testCollectorOpts, "format", true, true)
 	statRec := statCollector.StatRecorder.(*BufferedStatRecorder)
-	context := NewExecutionContext(statCollector)
+	session, err := mgo.DialWithTimeout(currentTestURL, 30*time.Second)
+	if err != nil {
+		t.Errorf("Error connecting to test server: %v", err)
+	}
+	context := NewExecutionContext(statCollector, session)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
-	err := Play(context, generator.opChan, testSpeed, currentTestURL, 1, 10)
+	err = Play(context, generator.opChan, testSpeed, 1, 10)
 	if err != nil {
 		t.Errorf("Error Playing traffic: %v\n", err)
 	}
 	t.Log("Completed mongoreplay playback of generated traffic")
 
 	// prepare a query for the database
-	session, err := mgo.DialWithTimeout(currentTestURL, 30*time.Second)
-	if err != nil {
-		t.Errorf("Error connecting to test server: %v", err)
-	}
 
 	coll := session.DB(testDB).C(testCollection)
 
@@ -877,11 +892,15 @@ func TestCommandOpFindLiveDB(t *testing.T) {
 
 	statCollector, _ := newStatCollector(testCollectorOpts, "format", true, true)
 	statRec := statCollector.StatRecorder.(*BufferedStatRecorder)
-	context := NewExecutionContext(statCollector)
+	session, err := mgo.Dial(currentTestURL)
+	if err != nil {
+		t.Errorf("Error connecting to test server: %v", err)
+	}
+	context := NewExecutionContext(statCollector, session)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
-	err := Play(context, generator.opChan, testSpeed, currentTestURL, 1, 10)
+	err = Play(context, generator.opChan, testSpeed, 1, 10)
 	if err != nil {
 		t.Errorf("Error Playing traffic: %v\n", err)
 	}
@@ -969,11 +988,15 @@ func TestCommandOpGetMoreLiveDB(t *testing.T) {
 	}()
 	statCollector, _ := newStatCollector(testCollectorOpts, "format", true, true)
 	statRec := statCollector.StatRecorder.(*BufferedStatRecorder)
-	context := NewExecutionContext(statCollector)
+	session, err := mgo.Dial(currentTestURL)
+	if err != nil {
+		t.Errorf("Error connecting to test server: %v", err)
+	}
+	context := NewExecutionContext(statCollector, session)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
-	err := Play(context, generator.opChan, testSpeed, currentTestURL, 1, 10)
+	err = Play(context, generator.opChan, testSpeed, 1, 10)
 	if err != nil {
 		t.Errorf("Error Playing traffic: %v\n", err)
 	}
