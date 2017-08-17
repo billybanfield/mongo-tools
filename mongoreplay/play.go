@@ -24,6 +24,7 @@ type PlayCommand struct {
 	NoPreprocess bool    `long:"no-preprocess" description:"don't preprocess the input file to premap data such as mongo cursorIDs"`
 	Gzip         bool    `long:"gzip" description:"decompress gzipped input"`
 	Collect      string  `long:"collect" description:"Stat collection format; 'format' option uses the --format string" choice:"json" choice:"format" choice:"none" default:"none"`
+	NoSleep      bool    `long:"no-sleep" description:"run the playback as fast as possible"`
 }
 
 const queueGranularity = 1000
@@ -214,7 +215,7 @@ func (play *PlayCommand) Execute(args []string) error {
 	}
 	session.SetSocketTimeout(0)
 
-	context := NewExecutionContext(statColl, session)
+	context := NewExecutionContext(statColl, session, play.NoSleep)
 
 	var opChan <-chan *RecordedOp
 	var errChan <-chan error

@@ -45,16 +45,19 @@ type ExecutionContext struct {
 	*StatCollector
 
 	session *mgo.Session
+
+	noSleep bool
 }
 
 // NewExecutionContext initializes a new ExecutionContext.
-func NewExecutionContext(statColl *StatCollector, session *mgo.Session) *ExecutionContext {
+func NewExecutionContext(statColl *StatCollector, session *mgo.Session, noSleep bool) *ExecutionContext {
 	return &ExecutionContext{
 		IncompleteReplies: cache.New(60*time.Second, 60*time.Second),
 		CompleteReplies:   map[string]*ReplyPair{},
 		CursorIDMap:       newCursorCache(),
 		StatCollector:     statColl,
 		session:           session,
+		noSleep:           noSleep,
 	}
 }
 
@@ -150,7 +153,9 @@ func (context *ExecutionContext) newExecutionSession(start time.Time, connection
 	go func() {
 		now := time.Now()
 		var connected bool
-		time.Sleep(start.Add(-5 * time.Millisecond).Sub(now)) // Sleep until five seconds before the start time
+		if !context.noSleep {
+			time.Sleep(start.Add(-5 * time.Millisecond).Sub(now)) // Sleep until five seconds before the start time
+		}
 		socket, err := context.session.AcquireSocketDirect()
 		if err == nil {
 			userInfoLogger.Logvf(Info, "(Connection %v) New connection CREATED.", connectionNum)
@@ -169,7 +174,8 @@ func (context *ExecutionContext) newExecutionSession(start time.Time, connection
 				// This allows it to be used for downstream reporting of stats.
 				recordedOp.PlayedConnectionNum = connectionNum
 				t := time.Now()
-				if recordedOp.RawOp.Header.OpCode != OpCodeReply {
+
+				if !context.noSleep && recordedOp.RawOp.Header.OpCode != OpCodeReply {
 					if t.Before(recordedOp.PlayAt.Time) {
 						time.Sleep(recordedOp.PlayAt.Sub(t))
 					}
