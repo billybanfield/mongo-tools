@@ -215,7 +215,7 @@ func pcapTestHelper(t *testing.T, pcapFname string, preprocess bool, verifier ve
 	if err != nil {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
-	context := NewExecutionContext(statCollector, session)
+	context := NewExecutionContext(statCollector, session, false)
 
 	var preprocessMap preprocessCursorManager
 	if preprocess {

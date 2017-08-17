@@ -186,7 +186,7 @@ func TestOpInsertLiveDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
-	context := NewExecutionContext(statCollector, session)
+	context := NewExecutionContext(statCollector, session, false)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
@@ -302,7 +302,7 @@ func TestUpdateOpLiveDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
-	context := NewExecutionContext(statCollector, session)
+	context := NewExecutionContext(statCollector, session, false)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
@@ -404,7 +404,7 @@ func TestQueryOpLiveDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
-	context := NewExecutionContext(statCollector, session)
+	context := NewExecutionContext(statCollector, session, false)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
@@ -496,7 +496,7 @@ func TestOpGetMoreLiveDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
-	context := NewExecutionContext(statCollector, session)
+	context := NewExecutionContext(statCollector, session, false)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
@@ -601,7 +601,7 @@ func TestOpGetMoreMultiCursorLiveDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
-	context := NewExecutionContext(statCollector, session)
+	context := NewExecutionContext(statCollector, session, false)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
@@ -726,7 +726,7 @@ func TestOpKillCursorsLiveDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
-	context := NewExecutionContext(statCollector, session)
+	context := NewExecutionContext(statCollector, session, false)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
@@ -796,7 +796,7 @@ func TestCommandOpInsertLiveDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
-	context := NewExecutionContext(statCollector, session)
+	context := NewExecutionContext(statCollector, session, false)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
@@ -896,7 +896,7 @@ func TestCommandOpFindLiveDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
-	context := NewExecutionContext(statCollector, session)
+	context := NewExecutionContext(statCollector, session, false)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
@@ -992,7 +992,7 @@ func TestCommandOpGetMoreLiveDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
-	context := NewExecutionContext(statCollector, session)
+	context := NewExecutionContext(statCollector, session, false)
 
 	// run mongoreplay's Play loop with the stubbed objects
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", currentTestURL)
