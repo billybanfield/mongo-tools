@@ -44,12 +44,17 @@ func extractOpType(x interface{}) (string, string) {
 	case *bson.Raw: // document
 		return extractOpType(*v)
 	case bson.Raw: // document
-		asD := bson.D{}
-		err := v.Unmarshal(&asD)
+		asRawD := bson.RawD{}
+		err := v.Unmarshal(&asRawD)
 		if err != nil {
-			panic(fmt.Sprintf("couldn't unmarshal Raw bson into D: %v", err))
+			panic(fmt.Sprintf("couldn't unmarshal Raw bson into RawD: %v", err))
 		}
-		return extractOpType(asD)
+		commandName = asRawD[0].Name
+		// convert RawD to bson.M (just keys)
+		asMap = bson.M{}
+		for _, elem := range asRawD {
+			asMap[elem.Name] = struct{}{}
+		}
 	case bson.M: // document
 		asMap = v
 	case map[string]interface{}:
