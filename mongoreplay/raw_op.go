@@ -88,7 +88,14 @@ func (op *RawOp) ShortenReply() error {
 		// unmarshal the needed fields for replacing into the buffer
 		commandReply := &CommandReplyStruct{}
 
-		err := bson.Unmarshal(op.Body[MsgHeaderLen:], commandReply)
+		r := bytes.NewReader(op.Body[MsgHeaderLen:])
+
+		commandReplyAsSlice, err := ReadDocument(r)
+		if err != nil {
+			return err
+		}
+
+		err = bson.Unmarshal(commandReplyAsSlice, commandReply)
 		if err != nil {
 			return fmt.Errorf("unmarshaling op to shorten: %v", err)
 		}
