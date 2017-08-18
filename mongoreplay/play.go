@@ -202,7 +202,11 @@ func (play *PlayCommand) Execute(args []string) error {
 		return err
 	}
 
-	userInfoLogger.Logvf(Always, "Doing playback at %.2fx speed", play.Speed)
+	if play.FullSpeed {
+		userInfoLogger.Logvf(Always, "Doing playback at full speed", play.Speed)
+	} else {
+		userInfoLogger.Logvf(Always, "Doing playback at %.2fx speed", play.Speed)
+	}
 
 	playbackFileReader, err := NewPlaybackFileReader(play.PlaybackFile, play.Gzip)
 	if err != nil {
