@@ -104,8 +104,13 @@ func getOpstream(cfg OpStreamSettings) (*packetHandlerContext, error) {
 // PlaybackWriter stores the necessary information for a playback destination,
 // which is an io.WriteCloser and its location.
 type PlaybackWriter struct {
-	io.WriteCloser
+	wc io.WriteCloser
+	*gob.Encoder
 	fname string
+}
+
+func (pw *PlaybackWriter) Close() error {
+	return pw.wc.Close()
 }
 
 // NewPlaybackWriter initializes a new PlaybackWriter
@@ -119,10 +124,11 @@ func NewPlaybackWriter(playbackFileName string, isGzipWriter bool) (*PlaybackWri
 		return nil, fmt.Errorf("error opening playback file to write to: %v", err)
 	}
 	if isGzipWriter {
-		pbWriter.WriteCloser = &util.WrappedWriteCloser{gzip.NewWriter(file), file}
+		pbWriter.wc = &util.WrappedWriteCloser{gzip.NewWriter(file), file}
 	} else {
-		pbWriter.WriteCloser = file
+		pbWriter.wc = file
 	}
+	pbWriter.Encoder = gob.NewEncoder(pbWriter.wc)
 	return pbWriter, nil
 }
 
@@ -182,9 +188,6 @@ func (record *RecordCommand) Execute(args []string) error {
 func Record(ctx *packetHandlerContext,
 	playbackWriter *PlaybackWriter,
 	noShortenReply bool) error {
-	// make an encoder
-	gobEncoder := gob.NewEncoder(playbackWriter)
-
 	ch := make(chan error)
 	go func() {
 		defer close(ch)
@@ -204,16 +207,7 @@ func Record(ctx *packetHandlerContext,
 					continue
 				}
 			}
-			//bsonBytes, err := bson.Marshal(op)
-			/*
-				if err != nil {
-					userInfoLogger.Logvf(DebugLow, "stream %v error marshaling message: %v", op.SeenConnectionNum, err)
-					continue
-				}
-
-					_, err = playbackWriter.Write(bsonBytes)
-			*/
-			err := gobEncoder.Encode(op)
+			err := playbackWriter.Encode(op)
 			if err != nil {
 				fail = fmt.Errorf("error writing message: %v", err)
 				userInfoLogger.Logvf(Always, "%v", err)
