@@ -153,7 +153,7 @@ func (context *ExecutionContext) newExecutionSession(start time.Time, connection
 	go func() {
 		now := time.Now()
 		var connected bool
-		if !context.noSleep {
+		if !context.fullSpeed {
 			time.Sleep(start.Add(-5 * time.Millisecond).Sub(now)) // Sleep until five seconds before the start time
 		}
 		socket, err := context.session.AcquireSocketDirect()
@@ -175,7 +175,7 @@ func (context *ExecutionContext) newExecutionSession(start time.Time, connection
 				recordedOp.PlayedConnectionNum = connectionNum
 				t := time.Now()
 
-				if !context.noSleep && recordedOp.RawOp.Header.OpCode != OpCodeReply {
+				if !context.fullSpeed && recordedOp.RawOp.Header.OpCode != OpCodeReply {
 					if t.Before(recordedOp.PlayAt.Time) {
 						time.Sleep(recordedOp.PlayAt.Sub(t))
 					}
