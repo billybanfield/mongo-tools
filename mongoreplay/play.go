@@ -293,9 +293,11 @@ func Play(context *ExecutionContext,
 		// don't sleep after every read, and generally read and queue
 		// queueGranularity number of ops at a time and then sleep until the
 		// last read op is QueueTime ahead.
-		if opCounter%queueGranularity == 0 {
-			toolDebugLogger.Logvf(DebugHigh, "Waiting to prevent excess buffering with opCounter: %v", opCounter)
-			time.Sleep(op.PlayAt.Add(time.Duration(-queueTime) * time.Second).Sub(time.Now()))
+		if !context.fullSpeed {
+			if opCounter%queueGranularity == 0 {
+				toolDebugLogger.Logvf(DebugHigh, "Waiting to prevent excess buffering with opCounter: %v", opCounter)
+				time.Sleep(op.PlayAt.Add(time.Duration(-queueTime) * time.Second).Sub(time.Now()))
+			}
 		}
 
 		sessionChan, ok := sessionChans[op.SeenConnectionNum]
