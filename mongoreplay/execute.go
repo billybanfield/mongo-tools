@@ -46,18 +46,18 @@ type ExecutionContext struct {
 
 	session *mgo.Session
 
-	noSleep bool
+	fullSpeed bool
 }
 
 // NewExecutionContext initializes a new ExecutionContext.
-func NewExecutionContext(statColl *StatCollector, session *mgo.Session, noSleep bool) *ExecutionContext {
+func NewExecutionContext(statColl *StatCollector, session *mgo.Session, fullSpeed bool) *ExecutionContext {
 	return &ExecutionContext{
 		IncompleteReplies: cache.New(60*time.Second, 60*time.Second),
 		CompleteReplies:   map[string]*ReplyPair{},
 		CursorIDMap:       newCursorCache(),
 		StatCollector:     statColl,
 		session:           session,
-		noSleep:           noSleep,
+		fullSpeed:         fullSpeed,
 	}
 }
 
