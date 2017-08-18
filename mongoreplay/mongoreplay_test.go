@@ -621,6 +621,7 @@ func TestShortenCommandReply(t *testing.T) {
 	commandReplyCheck := &findReply{
 		Cursor: cursorDoc{},
 	}
+
 	err = bson.Unmarshal(commandReplyCheckRaw.Data, commandReplyCheck)
 	if err != nil {
 		t.Errorf("error unmarshaling commandReply %v", err)
@@ -632,7 +633,10 @@ func TestShortenCommandReply(t *testing.T) {
 	}
 
 	// shorten the reply
-	result.ShortenReply()
+	err = result.ShortenReply()
+	if err != nil {
+		t.Errorf("error shortenint reply: %v", err)
+	}
 
 	parsed, err = result.RawOp.Parse()
 	if err != nil {
