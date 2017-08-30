@@ -8,10 +8,11 @@ import (
 
 // FilterCommand stores settings for the mongoreplay 'filter' subcommand
 type FilterCommand struct {
-	GlobalOpts   *Options `no-flag:"true"`
-	PlaybackFile string   `description:"path to the playback file to read from" short:"p" long:"playback-file" required:"yes"`
-	OutFile      string   `description:"path to the output file to write to" short:"o" long:"output-file"`
-	Gzip         bool     `long:"gzip" description:"decompress gzipped input"`
+	GlobalOpts      *Options `no-flag:"true"`
+	PlaybackFile    string   `description:"path to the playback file to read from" short:"p" long:"playback-file" required:"yes"`
+	OutFile         string   `description:"path to the output file to write to" short:"o" long:"output-file"`
+	RemoveDriverOps bool     `description:"remove driver issued operations from the playback" long:"removeDriverOps"`
+	Gzip            bool     `long:"gzip" description:"decompress gzipped input"`
 }
 
 // Execute runs the program for the 'filter' subcommand
@@ -35,7 +36,7 @@ func (filter *FilterCommand) Execute(args []string) error {
 	}
 	defer playbackWriter.Close()
 
-	if err := Filter(opChan, playbackWriter); err != nil {
+	if err := Filter(opChan, playbackWriter, filter.RemoveDriverOps); err != nil {
 		userInfoLogger.Logvf(Always, "Play: %v\n", err)
 	}
 
@@ -46,8 +47,17 @@ func (filter *FilterCommand) Execute(args []string) error {
 	}
 	return nil
 }
-func Filter(opChan <-chan *RecordedOp, playbackWriter *PlaybackWriter) error {
+func Filter(opChan <-chan *RecordedOp, playbackWriter *PlaybackWriter, removeDriverOps bool) error {
 	for op := range opChan {
+		if removeDriverOps {
+			parsedOp, err := op.RawOp.Parse()
+			if err != nil {
+				return err
+			}
+			if IsDriverOp(parsedOp) {
+				continue
+			}
+		}
 		bsonBytes, err := bson.Marshal(op)
 		if err != nil {
 			return err
