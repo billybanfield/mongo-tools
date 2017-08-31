@@ -23,7 +23,7 @@ func TestRepeatGeneration(t *testing.T) {
 	playbackReader := &PlaybackFileReader{reader, decoder}
 
 	repeat := 2
-	opChan, errChan := NewOpChanFromFile(playbackReader, repeat)
+	opChan, errChan := playbackReader.OpChan(repeat)
 	op1, ok := <-opChan
 	if !ok {
 		t.Fatalf("read of 0-generation op failed")
@@ -68,7 +68,7 @@ func TestPlayOpEOF(t *testing.T) {
 	playbackReader := &PlaybackFileReader{reader, decoder}
 
 	repeat := 2
-	opChan, errChan := NewOpChanFromFile(playbackReader, repeat)
+	opChan, errChan := playbackReader.OpChan(repeat)
 
 	op1, ok := <-opChan
 	if !ok {

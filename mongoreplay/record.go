@@ -1,16 +1,13 @@
 package mongoreplay
 
 import (
-	"compress/gzip"
 	"encoding/gob"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/google/gopacket/pcap"
-	"github.com/mongodb/mongo-tools/common/util"
 )
 
 // RecordCommand stores settings for the mongoreplay 'record' subcommand
@@ -101,37 +98,6 @@ func getOpstream(cfg OpStreamSettings) (*packetHandlerContext, error) {
 	return &packetHandlerContext{h, m, pcapHandle}, nil
 }
 
-// PlaybackWriter stores the necessary information for a playback destination,
-// which is an io.WriteCloser and its location.
-type PlaybackWriter struct {
-	wc io.WriteCloser
-	*gob.Encoder
-	fname string
-}
-
-func (pw *PlaybackWriter) Close() error {
-	return pw.wc.Close()
-}
-
-// NewPlaybackWriter initializes a new PlaybackWriter
-func NewPlaybackWriter(playbackFileName string, isGzipWriter bool) (*PlaybackWriter, error) {
-	pbWriter := &PlaybackWriter{
-		fname: playbackFileName,
-	}
-	toolDebugLogger.Logvf(DebugLow, "Opening playback file %v", playbackFileName)
-	file, err := os.Create(pbWriter.fname)
-	if err != nil {
-		return nil, fmt.Errorf("error opening playback file to write to: %v", err)
-	}
-	if isGzipWriter {
-		pbWriter.wc = &util.WrappedWriteCloser{gzip.NewWriter(file), file}
-	} else {
-		pbWriter.wc = file
-	}
-	pbWriter.Encoder = gob.NewEncoder(pbWriter.wc)
-	return pbWriter, nil
-}
-
 // ValidateParams validates the settings described in the RecordCommand struct.
 func (record *RecordCommand) ValidateParams(args []string) error {
 	switch {
@@ -174,19 +140,19 @@ func (record *RecordCommand) Execute(args []string) error {
 		toolDebugLogger.Logvf(Info, "Got signal %v, closing PCAP handle", s)
 		ctx.packetHandler.Close()
 	}()
-	playbackWriter, err := NewPlaybackWriter(record.PlaybackFile, record.Gzip)
+	playbackFileWriter, err := NewPlaybackFileWriter(record.PlaybackFile, record.Gzip)
 	if err != nil {
 		return err
 	}
-	defer playbackWriter.Close()
+	defer playbackFileWriter.Close()
 
-	return Record(ctx, playbackWriter, record.FullReplies)
+	return Record(ctx, playbackFileWriter, record.FullReplies)
 
 }
 
 // Record writes pcap data into a playback file
 func Record(ctx *packetHandlerContext,
-	playbackWriter *PlaybackWriter,
+	playbackWriter *PlaybackFileWriter,
 	noShortenReply bool) error {
 	ch := make(chan error)
 	go func() {
