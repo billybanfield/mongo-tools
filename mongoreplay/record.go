@@ -140,7 +140,7 @@ func (record *RecordCommand) Execute(args []string) error {
 		toolDebugLogger.Logvf(Info, "Got signal %v, closing PCAP handle", s)
 		ctx.packetHandler.Close()
 	}()
-	playbackFileWriter, err := NewPlaybackFileWriter(record.PlaybackFile, record.Gzip)
+	playbackFileWriter, err := NewPlaybackFileWriter(record.PlaybackFile, false, record.Gzip)
 	if err != nil {
 		return err
 	}

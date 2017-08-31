@@ -11,10 +11,20 @@ import (
 	"github.com/mongodb/mongo-tools/common/util"
 )
 
+const PlaybackFileVersion = 1
+
+type PlaybackFileMetadata struct {
+	PlaybackFileVersion int
+	DriverOpsFiltered   bool
+}
+
 // PlaybackFileReader stores the necessary information for a playback source,
 // which is just an io.ReadCloser.
 type PlaybackFileReader struct {
 	io.ReadSeeker
+	fname string
+
+	metadata PlaybackFileMetadata
 }
 
 // PlaybackFileWriter stores the necessary information for a playback destination,
@@ -22,6 +32,8 @@ type PlaybackFileReader struct {
 type PlaybackFileWriter struct {
 	io.WriteCloser
 	fname string
+
+	metadata PlaybackFileMetadata
 }
 
 // GzipReadSeeker wraps an io.ReadSeeker for gzip reading
@@ -46,11 +58,25 @@ func NewPlaybackFileReader(filename string, gzip bool) (*PlaybackFileReader, err
 		}
 	}
 
-	pfReader := &PlaybackFileReader{
-		ReadSeeker: readSeeker,
+	// read the metadata from the file
+	metadata := new(PlaybackFileMetadata)
+	buf, err := ReadDocument(readSeeker)
+	if err != nil {
+		return nil, fmt.Errorf("ReadDocument Error: %v", err)
 	}
 
-	return pfReader, nil
+	err = bson.Unmarshal(buf, metadata)
+	if err != nil {
+		return nil, fmt.Errorf("Unmarshal RecordedOp Error: %v\n", err)
+	}
+	fmt.Println(metadata)
+
+	return &PlaybackFileReader{
+		ReadSeeker: readSeeker,
+		fname:      filename,
+
+		metadata: *metadata,
+	}, nil
 }
 
 // NextRecordedOp iterates through the PlaybackFileReader to yield the next
@@ -74,22 +100,40 @@ func (file *PlaybackFileReader) NextRecordedOp() (*RecordedOp, error) {
 }
 
 // NewPlaybackFileWriter initializes a new PlaybackFileWriter
-func NewPlaybackFileWriter(playbackFileName string, isGzipWriter bool) (*PlaybackFileWriter, error) {
-	pbWriter := &PlaybackFileWriter{
-		fname: playbackFileName,
+func NewPlaybackFileWriter(playbackFileName string, driverOpsFiltered, isGzipWriter bool) (*PlaybackFileWriter, error) {
+	metadata := PlaybackFileMetadata{
+		PlaybackFileVersion: PlaybackFileVersion,
+		DriverOpsFiltered:   driverOpsFiltered,
 	}
+
 	toolDebugLogger.Logvf(DebugLow, "Opening playback file %v", playbackFileName)
-	file, err := os.Create(pbWriter.fname)
+	file, err := os.Create(playbackFileName)
 	if err != nil {
 		return nil, fmt.Errorf("error opening playback file to write to: %v", err)
 	}
+
+	var wc io.WriteCloser = file
+
 	if isGzipWriter {
-		pbWriter.WriteCloser = &util.WrappedWriteCloser{gzip.NewWriter(file), file}
-	} else {
-		pbWriter.WriteCloser = file
+		wc = &util.WrappedWriteCloser{gzip.NewWriter(file), file}
 	}
 
-	return pbWriter, nil
+	// write the metadata out to the file
+	bsonBytes, err := bson.Marshal(metadata)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling metadata: %v", err)
+	}
+	_, err = file.Write(bsonBytes)
+	if err != nil {
+		return nil, fmt.Errorf("error writing metadata: %v", err)
+	}
+
+	return &PlaybackFileWriter{
+		WriteCloser: wc,
+		fname:       playbackFileName,
+
+		metadata: metadata,
+	}, nil
 }
 
 // NewGzipReadSeeker initializes a new GzipReadSeeker
@@ -136,6 +180,11 @@ func (pfReader *PlaybackFileReader) OpChan(repeat int) (<-chan *RecordedOp, <-ch
 				_, err := pfReader.Seek(0, 0)
 				if err != nil {
 					return fmt.Errorf("PlaybackFile Seek: %v", err)
+				}
+
+				_, err = ReadDocument(pfReader)
+				if err != nil {
+					return fmt.Errorf("ReadDocument error: %v", err)
 				}
 
 				var order int64
