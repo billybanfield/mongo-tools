@@ -21,7 +21,7 @@ type FilterCommand struct {
 	RemoveDriverOps bool     `description:"remove driver issued operations from the playback" long:"removeDriverOps"`
 	Gzip            bool     `long:"gzip" description:"decompress gzipped input"`
 
-	startTime *time.Time
+	startTime time.Time
 }
 
 // Execute runs the program for the 'filter' subcommand
@@ -72,7 +72,7 @@ func (filter *FilterCommand) Execute(args []string) error {
 func Filter(opChan <-chan *RecordedOp,
 	outfiles []*PlaybackWriter,
 	removeDriverOps bool,
-	truncateTime *time.Time) error {
+	truncateTime time.Time) error {
 
 	opWriters := make([]chan<- *RecordedOp, len(outfiles))
 	errChan := make(chan error)
@@ -93,10 +93,10 @@ func Filter(opChan <-chan *RecordedOp,
 			}
 		}
 		// if specified, ignore ops before the given timestamp
-		if truncateTime != nil {
-			if op.Seen.Time.Before(*truncateTime) {
-				continue
-			}
+		// if truncateTime not specified, it will be time zero and all
+		// operation times will be greater than it
+		if op.Seen.Time.Before(truncateTime) {
+			continue
 		}
 		fileNum := op.SeenConnectionNum % int64(len(outfiles))
 		opWriters[fileNum] <- op
@@ -170,7 +170,7 @@ func (filter *FilterCommand) ValidateParams(args []string) error {
 		if err != nil {
 			return fmt.Errorf("error parsing start time argument: %v", err)
 		}
-		filter.startTime = &t
+		filter.startTime = t
 	}
 	return nil
 }
