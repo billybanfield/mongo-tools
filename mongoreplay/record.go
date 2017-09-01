@@ -1,7 +1,6 @@
 package mongoreplay
 
 import (
-	"encoding/gob"
 	"fmt"
 	"os"
 	"os/signal"

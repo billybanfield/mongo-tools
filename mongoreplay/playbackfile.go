@@ -2,12 +2,12 @@ package mongoreplay
 
 import (
 	"compress/gzip"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"os"
 	"time"
 
-	"github.com/10gen/llmgo/bson"
 	"github.com/mongodb/mongo-tools/common/util"
 )
 
@@ -21,8 +21,9 @@ type PlaybackFileMetadata struct {
 // PlaybackFileReader stores the necessary information for a playback source,
 // which is just an io.ReadCloser.
 type PlaybackFileReader struct {
-	io.ReadSeeker
-	fname string
+	rs      io.ReadSeeker
+	fname   string
+	decoder *gob.Decoder
 
 	metadata PlaybackFileMetadata
 }
@@ -30,7 +31,8 @@ type PlaybackFileReader struct {
 // PlaybackFileWriter stores the necessary information for a playback destination,
 // which is an io.WriteCloser and its location.
 type PlaybackFileWriter struct {
-	io.WriteCloser
+	wc io.WriteCloser
+	*gob.Encoder
 	fname string
 
 	metadata PlaybackFileMetadata
@@ -40,6 +42,15 @@ type PlaybackFileWriter struct {
 type GzipReadSeeker struct {
 	readSeeker io.ReadSeeker
 	*gzip.Reader
+}
+
+func (file *PlaybackFileReader) Seek(offset int64, whence int) (int64, error) {
+	set, err := file.rs.Seek(offset, whence)
+	if err != nil {
+		return set, err
+	}
+	file.decoder = gob.NewDecoder(file.rs)
+	return set, err
 }
 
 // NewPlaybackFileReader initializes a new PlaybackFileReader
@@ -58,22 +69,19 @@ func NewPlaybackFileReader(filename string, gzip bool) (*PlaybackFileReader, err
 		}
 	}
 
+	gc := gob.NewDecoder(readSeeker)
+
 	// read the metadata from the file
 	metadata := new(PlaybackFileMetadata)
-	buf, err := ReadDocument(readSeeker)
+	err = gc.Decode(metadata)
 	if err != nil {
-		return nil, fmt.Errorf("ReadDocument Error: %v", err)
+		return nil, fmt.Errorf("gob decode Error: %v", err)
 	}
-
-	err = bson.Unmarshal(buf, metadata)
-	if err != nil {
-		return nil, fmt.Errorf("Unmarshal RecordedOp Error: %v\n", err)
-	}
-	fmt.Println(metadata)
 
 	return &PlaybackFileReader{
-		ReadSeeker: readSeeker,
-		fname:      filename,
+		rs:      readSeeker,
+		fname:   filename,
+		decoder: gc,
 
 		metadata: *metadata,
 	}, nil
@@ -82,18 +90,13 @@ func NewPlaybackFileReader(filename string, gzip bool) (*PlaybackFileReader, err
 // NextRecordedOp iterates through the PlaybackFileReader to yield the next
 // RecordedOp. It returns io.EOF when successfully complete.
 func (file *PlaybackFileReader) NextRecordedOp() (*RecordedOp, error) {
-	buf, err := ReadDocument(file)
+	doc := new(RecordedOp)
+	err := file.decoder.Decode(doc)
 	if err != nil {
 		if err != io.EOF {
-			err = fmt.Errorf("ReadDocument Error: %v", err)
+			err = fmt.Errorf("gob decode Error: %v", err)
 		}
 		return nil, err
-	}
-
-	doc := new(RecordedOp)
-	err = bson.Unmarshal(buf, doc)
-	if err != nil {
-		return nil, fmt.Errorf("Unmarshal RecordedOp Error: %v\n", err)
 	}
 
 	return doc, nil
@@ -118,22 +121,24 @@ func NewPlaybackFileWriter(playbackFileName string, driverOpsFiltered, isGzipWri
 		wc = &util.WrappedWriteCloser{gzip.NewWriter(file), file}
 	}
 
-	// write the metadata out to the file
-	bsonBytes, err := bson.Marshal(metadata)
-	if err != nil {
-		return nil, fmt.Errorf("error marshalling metadata: %v", err)
-	}
-	_, err = file.Write(bsonBytes)
+	encoder := gob.NewEncoder(wc)
+
+	err = encoder.Encode(metadata)
 	if err != nil {
 		return nil, fmt.Errorf("error writing metadata: %v", err)
 	}
 
 	return &PlaybackFileWriter{
-		WriteCloser: wc,
-		fname:       playbackFileName,
+		wc:      wc,
+		Encoder: encoder,
+		fname:   playbackFileName,
 
 		metadata: metadata,
 	}, nil
+}
+
+func (pw *PlaybackFileWriter) Close() error {
+	return pw.wc.Close()
 }
 
 // NewGzipReadSeeker initializes a new GzipReadSeeker
@@ -182,9 +187,11 @@ func (pfReader *PlaybackFileReader) OpChan(repeat int) (<-chan *RecordedOp, <-ch
 					return fmt.Errorf("PlaybackFile Seek: %v", err)
 				}
 
-				_, err = ReadDocument(pfReader)
+				// Must read the metadata since file was seeked to 0
+				metadata := new(PlaybackFileMetadata)
+				err = pfReader.decoder.Decode(metadata)
 				if err != nil {
-					return fmt.Errorf("ReadDocument error: %v", err)
+					return fmt.Errorf("gob decode Error: %v", err)
 				}
 
 				var order int64

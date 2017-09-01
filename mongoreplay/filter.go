@@ -6,8 +6,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/10gen/llmgo/bson"
 )
 
 // FilterCommand stores settings for the mongoreplay 'filter' subcommand
@@ -132,12 +130,7 @@ func newParallelPlaybackWriter(outfile *PlaybackFileWriter,
 	go func() {
 		defer wg.Done()
 		for op := range inputOpChan {
-			bsonBytes, err := bson.Marshal(op)
-			if err != nil {
-				errChan <- err
-				return
-			}
-			_, err = outfile.Write(bsonBytes)
+			err := outfile.Encode(op)
 			if err != nil {
 				errChan <- err
 				return
