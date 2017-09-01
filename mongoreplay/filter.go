@@ -36,19 +36,23 @@ func (filter *FilterCommand) Execute(args []string) error {
 	if err != nil {
 		return err
 	}
-	opChan, errChan := NewOpChanFromFile(playbackFileReader, 1)
+	opChan, errChan := playbackFileReader.OpChan(1)
 
-	outfiles := make([]*PlaybackWriter, filter.Split)
+	driverOpsFiltered := filter.RemoveDriverOps || playbackFileReader.metadata.DriverOpsFiltered
+
+	outfiles := make([]*PlaybackFileWriter, filter.Split)
 	if filter.Split == 1 {
-		playbackWriter, err := NewPlaybackWriter(filter.OutFile, filter.Gzip)
+		playbackWriter, err := NewPlaybackFileWriter(filter.OutFile, driverOpsFiltered,
+			filter.Gzip)
 		if err != nil {
 			return err
 		}
 		outfiles[0] = playbackWriter
 	} else {
 		for i := 0; i < filter.Split; i++ {
-			playbackWriter, err := NewPlaybackWriter(
-				fmt.Sprintf("%s%02d.playback", filter.SplitFilePrefix, i), filter.Gzip)
+			playbackWriter, err := NewPlaybackFileWriter(
+				fmt.Sprintf("%s%02d.playback", filter.SplitFilePrefix, i), driverOpsFiltered,
+				filter.Gzip)
 			if err != nil {
 				return err
 			}
@@ -70,7 +74,7 @@ func (filter *FilterCommand) Execute(args []string) error {
 }
 
 func Filter(opChan <-chan *RecordedOp,
-	outfiles []*PlaybackWriter,
+	outfiles []*PlaybackFileWriter,
 	removeDriverOps bool,
 	truncateTime time.Time) error {
 
@@ -119,7 +123,7 @@ func Filter(opChan <-chan *RecordedOp,
 	return nil
 }
 
-func newParallelPlaybackWriter(outfile *PlaybackWriter,
+func newParallelPlaybackWriter(outfile *PlaybackFileWriter,
 	errChan chan<- error, wg *sync.WaitGroup) chan<- *RecordedOp {
 	var didWriteOp bool
 
