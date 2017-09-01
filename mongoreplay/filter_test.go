@@ -2,12 +2,11 @@ package mongoreplay
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"testing"
 	"time"
 
-	"github.com/10gen/llmgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 func TestRemoveDriverOpsFromFile(t *testing.T) {
@@ -54,9 +53,9 @@ func TestRemoveDriverOpsFromFile(t *testing.T) {
 		b := &bytes.Buffer{}
 		bufferFile := NopWriteCloser(b)
 
-		playbackWriter := PlaybackWriter{
-			WriteCloser: bufferFile,
-			fname:       "file",
+		playbackWriter, err := playbackFileWriterFromWriteCloser(bufferFile, "file", PlaybackFileMetadata{})
+		if err != nil {
+			t.Fatalf("couldn't create playbackfile writer %v", err)
 		}
 
 		// start a goroutine to write recorded ops to the opChan
@@ -78,13 +77,17 @@ func TestRemoveDriverOpsFromFile(t *testing.T) {
 		}()
 
 		// run Filter to remove the driver op from the file
-		if err := Filter(generator.opChan, []*PlaybackWriter{&playbackWriter}, c.shouldRemoveDriverOps, time.Time{}); err != nil {
+		if err := Filter(generator.opChan, []*PlaybackFileWriter{playbackWriter}, c.shouldRemoveDriverOps, time.Time{}); err != nil {
 			t.Error(err)
 		}
 
+		rs := bytes.NewReader(b.Bytes())
 		// open a reader into the written output
-		playbackReader := &PlaybackFileReader{bytes.NewReader(b.Bytes())}
-		opChan, errChan := NewOpChanFromFile(playbackReader, 1)
+		playbackReader, err := playbackFileReaderFromReadSeeker(rs, "")
+		if err != nil {
+			t.Fatalf("couldn't create playbackfile reader %v", err)
+		}
+		opChan, errChan := playbackReader.OpChan(1)
 
 		// loop over the found operations and verify that the correct number and
 		// types of operations are found
@@ -109,7 +112,7 @@ func TestRemoveDriverOpsFromFile(t *testing.T) {
 		if c.numOpsExpectedAfterFilter != numOpsFound {
 			t.Errorf("expected to have found %d total ops after filter but instead found %d", c.numOpsExpectedAfterFilter, numOpsFound)
 		}
-		err := <-errChan
+		err = <-errChan
 		if err != io.EOF {
 			t.Errorf("should have eof at end, but got %v", err)
 		}
@@ -139,7 +142,7 @@ func TestSplitInputFile(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Logf("running case: %s\n", c.name)
-		outfiles := make([]*PlaybackWriter, c.numPlaybackFiles)
+		outfiles := make([]*PlaybackFileWriter, c.numPlaybackFiles)
 		buffers := make([]*bytes.Buffer, c.numPlaybackFiles)
 
 		// create a buffer to represent each specified playback file to write
@@ -148,12 +151,11 @@ func TestSplitInputFile(t *testing.T) {
 			buffers[i] = b
 
 			bufferFile := NopWriteCloser(b)
-
-			playbackWriter := PlaybackWriter{
-				WriteCloser: bufferFile,
-				fname:       fmt.Sprintf("%s%02d.playback", "testfile", i),
+			playbackWriter, err := playbackFileWriterFromWriteCloser(bufferFile, "testfile", PlaybackFileMetadata{})
+			if err != nil {
+				t.Fatalf("couldn't create playbackfile writer %v", err)
 			}
-			outfiles[i] = &playbackWriter
+			outfiles[i] = playbackWriter
 		}
 
 		// make an channel to push all recorded connections into
@@ -181,8 +183,12 @@ func TestSplitInputFile(t *testing.T) {
 		// connectionNum % numFiles == filenum
 		t.Log("verifying connections correctly split")
 		for fileNum, writtenBuffer := range buffers {
-			playbackReader := &PlaybackFileReader{bytes.NewReader(writtenBuffer.Bytes())}
-			opChan, errChan := NewOpChanFromFile(playbackReader, 1)
+			rs := bytes.NewReader(writtenBuffer.Bytes())
+			playbackReader, err := playbackFileReaderFromReadSeeker(rs, "")
+			if err != nil {
+				t.Fatalf("couldn't create playbackfile reader %v", err)
+			}
+			opChan, errChan := playbackReader.OpChan(1)
 
 			for op := range opChan {
 				expectedFileNum := op.SeenConnectionNum % int64(len(outfiles))
@@ -191,7 +197,7 @@ func TestSplitInputFile(t *testing.T) {
 						"%d, but instead it was found in file %d", op.SeenConnectionNum, expectedFileNum, fileNum)
 				}
 			}
-			err := <-errChan
+			err = <-errChan
 			if err != io.EOF {
 				t.Errorf("should have eof at end, but got %v", err)
 			}
@@ -244,9 +250,10 @@ func TestRemoveOpsBeforeTime(t *testing.T) {
 		// create a bytes buffer to write output into
 		b := &bytes.Buffer{}
 		bufferFile := NopWriteCloser(b)
-		playbackWriter := PlaybackWriter{
-			WriteCloser: bufferFile,
-			fname:       "file",
+
+		playbackWriter, err := playbackFileWriterFromWriteCloser(bufferFile, "file", PlaybackFileMetadata{})
+		if err != nil {
+			t.Fatalf("couldn't create playbackfile writer %v", err)
 		}
 
 		//create a recorded op for each time specified
@@ -265,12 +272,16 @@ func TestRemoveOpsBeforeTime(t *testing.T) {
 		}()
 
 		// run the main filter routine with the given input
-		if err := Filter(inputOpChan, []*PlaybackWriter{&playbackWriter}, false, c.timeToTruncateBefore); err != nil {
+		if err := Filter(inputOpChan, []*PlaybackFileWriter{playbackWriter}, false, c.timeToTruncateBefore); err != nil {
 			t.Error(err)
 		}
 
-		playbackReader := &PlaybackFileReader{bytes.NewReader(b.Bytes())}
-		resultOpChan, errChan := NewOpChanFromFile(playbackReader, 1)
+		rs := bytes.NewReader(b.Bytes())
+		playbackReader, err := playbackFileReaderFromReadSeeker(rs, "")
+		if err != nil {
+			t.Fatalf("couldn't create playbackfile reader %v", err)
+		}
+		resultOpChan, errChan := playbackReader.OpChan(1)
 
 		numOpsSeen := 0
 		for op := range resultOpChan {
@@ -284,7 +295,7 @@ func TestRemoveOpsBeforeTime(t *testing.T) {
 			t.Errorf("expected to see %d ops but instead saw %d", c.numOpsExpectedAfterFilter, numOpsSeen)
 		}
 
-		err := <-errChan
+		err = <-errChan
 		if err != io.EOF {
 			t.Errorf("should have eof at end, but got %v", err)
 		}

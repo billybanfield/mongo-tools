@@ -69,17 +69,21 @@ func NewPlaybackFileReader(filename string, gzip bool) (*PlaybackFileReader, err
 		}
 	}
 
-	gc := gob.NewDecoder(readSeeker)
+	return playbackFileReaderFromReadSeeker(readSeeker, filename)
+}
+
+func playbackFileReaderFromReadSeeker(rs io.ReadSeeker, filename string) (*PlaybackFileReader, error) {
+	gc := gob.NewDecoder(rs)
 
 	// read the metadata from the file
 	metadata := new(PlaybackFileMetadata)
-	err = gc.Decode(metadata)
+	err := gc.Decode(metadata)
 	if err != nil {
 		return nil, fmt.Errorf("gob decode Error: %v", err)
 	}
 
 	return &PlaybackFileReader{
-		rs:      readSeeker,
+		rs:      rs,
 		fname:   filename,
 		decoder: gc,
 
@@ -121,9 +125,15 @@ func NewPlaybackFileWriter(playbackFileName string, driverOpsFiltered, isGzipWri
 		wc = &util.WrappedWriteCloser{gzip.NewWriter(file), file}
 	}
 
+	return playbackFileWriterFromWriteCloser(wc, playbackFileName, metadata)
+}
+
+func playbackFileWriterFromWriteCloser(wc io.WriteCloser, filename string,
+	metadata PlaybackFileMetadata) (*PlaybackFileWriter, error) {
+
 	encoder := gob.NewEncoder(wc)
 
-	err = encoder.Encode(metadata)
+	err := encoder.Encode(metadata)
 	if err != nil {
 		return nil, fmt.Errorf("error writing metadata: %v", err)
 	}
@@ -131,10 +141,11 @@ func NewPlaybackFileWriter(playbackFileName string, driverOpsFiltered, isGzipWri
 	return &PlaybackFileWriter{
 		wc:      wc,
 		Encoder: encoder,
-		fname:   playbackFileName,
+		fname:   filename,
 
 		metadata: metadata,
 	}, nil
+
 }
 
 func (pw *PlaybackFileWriter) Close() error {

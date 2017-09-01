@@ -2,7 +2,6 @@ package mongoreplay
 
 import (
 	"bytes"
-	"encoding/gob"
 	"io"
 	"testing"
 	"time"
@@ -13,14 +12,22 @@ func TestRepeatGeneration(t *testing.T) {
 		Seen: &PreciseTime{time.Now()},
 	}
 	var buf bytes.Buffer
-	encoder := gob.NewEncoder(&buf)
-	err := encoder.Encode(recOp)
+
+	wc := NopWriteCloser(&buf)
+	playbackFileWriter, err := playbackFileWriterFromWriteCloser(wc, "", PlaybackFileMetadata{})
+	if err != nil {
+		t.Fatalf("couldn't create playbackfile writer %v", err)
+	}
+	err = playbackFileWriter.Encode(recOp)
 	if err != nil {
 		t.Fatalf("couldn't marshal %v", err)
 	}
+
 	reader := bytes.NewReader(buf.Bytes())
-	decoder := gob.NewDecoder(reader)
-	playbackReader := &PlaybackFileReader{reader, decoder}
+	playbackReader, err := playbackFileReaderFromReadSeeker(reader, "")
+	if err != nil {
+		t.Fatalf("couldn't create playbackfile reader %v", err)
+	}
 
 	repeat := 2
 	opChan, errChan := playbackReader.OpChan(repeat)
@@ -56,16 +63,24 @@ func TestPlayOpEOF(t *testing.T) {
 		EOF:  true,
 	}}
 	var buf bytes.Buffer
-	encoder := gob.NewEncoder(&buf)
+
+	wc := NopWriteCloser(&buf)
+	playbackFileWriter, err := playbackFileWriterFromWriteCloser(wc, "", PlaybackFileMetadata{})
+	if err != nil {
+		t.Fatalf("couldn't create playbackfile writer %v", err)
+	}
 	for _, op := range ops {
-		err := encoder.Encode(op)
+		err := playbackFileWriter.Encode(op)
 		if err != nil {
 			t.Fatalf("couldn't marshal op %v", err)
 		}
 	}
+
 	reader := bytes.NewReader(buf.Bytes())
-	decoder := gob.NewDecoder(reader)
-	playbackReader := &PlaybackFileReader{reader, decoder}
+	playbackReader, err := playbackFileReaderFromReadSeeker(reader, "")
+	if err != nil {
+		t.Fatalf("couldn't create playbackfile reader %v", err)
+	}
 
 	repeat := 2
 	opChan, errChan := playbackReader.OpChan(repeat)
@@ -96,7 +111,7 @@ func TestPlayOpEOF(t *testing.T) {
 	if ok {
 		t.Fatalf("Successfully read past end of op chan")
 	}
-	err := <-errChan
+	err = <-errChan
 	if err != io.EOF {
 		t.Fatalf("should have eof at end, but got %v", err)
 	}

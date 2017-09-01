@@ -175,7 +175,7 @@ func playbackFileFromPcap(pcapFname, playbackFname string) error {
 		return fmt.Errorf("couldn't open opstream: %v", err)
 	}
 
-	playbackWriter, err := NewPlaybackFileWriter(playbackFname, false)
+	playbackWriter, err := NewPlaybackFileWriter(playbackFname, false, false)
 	if err != nil {
 		return err
 	}
