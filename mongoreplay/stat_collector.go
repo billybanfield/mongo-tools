@@ -143,7 +143,7 @@ func shouldCollectOp(op Op, driverOpsFiltered bool) bool {
 	_, isCommandReplyOp := op.(*CommandReplyOp)
 
 	var isDriverOp bool
-	if driverOpsFiltered {
+	if !driverOpsFiltered {
 		isDriverOp = IsDriverOp(op)
 	}
 	return !isReplyOp && !isCommandReplyOp && !isDriverOp
