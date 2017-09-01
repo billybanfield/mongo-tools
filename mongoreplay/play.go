@@ -78,7 +78,7 @@ func (play *PlayCommand) Execute(args []string) error {
 	}
 	session.SetSocketTimeout(0)
 
-	context := NewExecutionContext(statColl, session, play.FullSpeed)
+	context := NewExecutionContext(statColl, session, playbackFileReader.metadata.DriverOpsFiltered, play.FullSpeed)
 
 	var opChan <-chan *RecordedOp
 	var errChan <-chan error

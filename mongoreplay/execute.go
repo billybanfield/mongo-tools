@@ -47,10 +47,13 @@ type ExecutionContext struct {
 	session *mgo.Session
 
 	fullSpeed bool
+
+	driverOpsFiltered bool
 }
 
 // NewExecutionContext initializes a new ExecutionContext.
-func NewExecutionContext(statColl *StatCollector, session *mgo.Session, fullSpeed bool) *ExecutionContext {
+func NewExecutionContext(statColl *StatCollector, session *mgo.Session,
+	driverOpsFiltered, fullSpeed bool) *ExecutionContext {
 	return &ExecutionContext{
 		IncompleteReplies: cache.New(60*time.Second, 60*time.Second),
 		CompleteReplies:   map[string]*ReplyPair{},
@@ -58,6 +61,7 @@ func NewExecutionContext(statColl *StatCollector, session *mgo.Session, fullSpee
 		StatCollector:     statColl,
 		session:           session,
 		fullSpeed:         fullSpeed,
+		driverOpsFiltered: driverOpsFiltered,
 	}
 }
 
@@ -194,7 +198,7 @@ func (context *ExecutionContext) newExecutionSession(start time.Time, connection
 				msg = fmt.Sprintf("Skipped on non-connected socket (Connection %v)", connectionNum)
 				toolDebugLogger.Logv(Always, msg)
 			}
-			if shouldCollectOp(parsedOp) {
+			if shouldCollectOp(parsedOp, context.driverOpsFiltered) {
 				context.Collect(recordedOp, parsedOp, reply, msg)
 			}
 		}
@@ -221,7 +225,7 @@ func (context *ExecutionContext) Execute(op *RecordedOp, socket *mgo.MongoSocket
 	} else if recordedCommandReply, ok := opToExec.(*CommandReplyOp); ok {
 		context.AddFromFile(recordedCommandReply, op)
 	} else {
-		if IsDriverOp(opToExec) {
+		if !context.driverOpsFiltered && IsDriverOp(opToExec) {
 			return opToExec, nil, nil
 		}
 
