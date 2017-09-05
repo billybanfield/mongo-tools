@@ -34,7 +34,7 @@ func TestCommandsAgainstAuthedDBWhenAuthed(t *testing.T) {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
 	statCollector, _ := newStatCollector(testCollectorOpts, "format", true, true)
-	context := NewExecutionContext(statCollector, session, false)
+	context := NewExecutionContext(statCollector, session, false, false)
 	t.Logf("Beginning mongoreplay playback of generated traffic against host: %v\n", urlAuth)
 	err = Play(context, generator.opChan, testSpeed, 1, 10)
 	if err != nil {
@@ -97,19 +97,24 @@ func TestCommandsAgainstAuthedDBWhenNotAuthed(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	session, err := mgo.Dial(urlAuth)
+	nonAuthSession, err := mgo.Dial(urlNonAuth)
 	if err != nil {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
 	statCollector, _ := newStatCollector(testCollectorOpts, "format", true, true)
-	context := NewExecutionContext(statCollector, session, false)
+	context := NewExecutionContext(statCollector, nonAuthSession, false, false)
 	err = Play(context, generator.opChan, testSpeed, 1, 10)
 	if err != nil {
 		t.Error(err)
 	}
 	t.Log("Completed mongoreplay playback of generated traffic")
 
-	coll := session.DB(testDB).C(testCollection)
+	authSession, err := mgo.Dial(urlAuth)
+	if err != nil {
+		t.Errorf("Error connecting to test server: %v", err)
+	}
+
+	coll := authSession.DB(testDB).C(testCollection)
 
 	t.Log("Performing query to ensure collection received no documents")
 

@@ -4236,6 +4236,10 @@ func (s *Session) AcquireSocketDirect() (*MongoSocket, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err = s.socketLogin(sock); err != nil {
+		sock.Release()
+		return nil, err
+	}
 	return sock, nil
 }
 

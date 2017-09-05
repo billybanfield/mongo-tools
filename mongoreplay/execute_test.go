@@ -11,7 +11,7 @@ func TestCompleteReply(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error connecting to test server: %v", err)
 	}
-	context := NewExecutionContext(&StatCollector{}, session, false)
+	context := NewExecutionContext(&StatCollector{}, session, false, false)
 
 	// AddFromWire takes a recorded request and a live reply to the re-execution
 	// of that reply
