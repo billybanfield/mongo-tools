@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"syscall"
 
 	"github.com/google/gopacket/pcap"
@@ -180,7 +181,17 @@ func (record *RecordCommand) Execute(args []string) error {
 	}
 	defer playbackWriter.Close()
 
-	return Record(ctx, playbackWriter, record.FullReplies)
+	err = Record(ctx, playbackWriter, record.FullReplies)
+
+	if record.GlobalOpts.MemProfileFname != "" {
+		f, err := os.Create(record.GlobalOpts.MemProfileFname)
+		if err != nil {
+			panic(err)
+		}
+		pprof.WriteHeapProfile(f)
+		f.Close()
+	}
+	return err
 
 }
 

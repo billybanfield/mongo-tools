@@ -6,6 +6,7 @@ type Options struct {
 	Debug           []bool `short:"d" long:"debug" description:"increase the detail regarding the operations and errors of the tool that is output to the logs(include multiple times for increased debugging information, e.g. -ddd)"`
 	Silent          bool   `short:"s" long:"silent" description:"silence all log output"`
 	CPUProfileFname string `long:"proffile" description:"pprof file output location"`
+	MemProfileFname string `long:"memfile" description:"memory file output location"`
 }
 
 // SetLogging sets the verbosity/debug level for log output.
