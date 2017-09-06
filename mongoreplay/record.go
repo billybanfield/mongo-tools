@@ -181,16 +181,21 @@ func (record *RecordCommand) Execute(args []string) error {
 	}
 	defer playbackWriter.Close()
 
+	defer func() {
+		if r := recover(); r != nil {
+			if record.GlobalOpts.MemProfileFname != "" {
+				f, err := os.Create(record.GlobalOpts.MemProfileFname)
+				if err != nil {
+					panic(err)
+				}
+				pprof.WriteHeapProfile(f)
+				f.Close()
+			}
+		}
+	}()
+
 	err = Record(ctx, playbackWriter, record.FullReplies)
 
-	if record.GlobalOpts.MemProfileFname != "" {
-		f, err := os.Create(record.GlobalOpts.MemProfileFname)
-		if err != nil {
-			panic(err)
-		}
-		pprof.WriteHeapProfile(f)
-		f.Close()
-	}
 	return err
 
 }
