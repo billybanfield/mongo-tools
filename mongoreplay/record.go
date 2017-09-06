@@ -181,23 +181,18 @@ func (record *RecordCommand) Execute(args []string) error {
 	}
 	defer playbackWriter.Close()
 
-	defer func() {
-		if r := recover(); r != nil {
-			if record.GlobalOpts.MemProfileFname != "" {
-				f, err := os.Create(record.GlobalOpts.MemProfileFname)
-				if err != nil {
-					panic(err)
-				}
-				pprof.WriteHeapProfile(f)
-				f.Close()
-			}
-		}
-	}()
-
 	err = Record(ctx, playbackWriter, record.FullReplies)
 
-	return err
+	if record.GlobalOpts.MemProfileFname != "" {
+		f, err := os.Create(record.GlobalOpts.MemProfileFname)
+		if err != nil {
+			panic(err)
+		}
+		pprof.WriteHeapProfile(f)
+		f.Close()
+	}
 
+	return err
 }
 
 // Record writes pcap data into a playback file
@@ -206,9 +201,13 @@ func Record(ctx *packetHandlerContext,
 	noShortenReply bool) error {
 	ch := make(chan error)
 	go func() {
+		i := 0
 		defer close(ch)
 		var fail error
 		for op := range ctx.mongoOpStream.Ops {
+			if i == 3000 {
+				return
+			}
 			// since we don't currently have a way to shutdown packetHandler.Handle()
 			// continue to read from ctx.mongoOpStream.Ops even after a faltal error
 			if fail != nil {
