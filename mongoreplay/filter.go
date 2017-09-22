@@ -36,7 +36,12 @@ func (filter *FilterCommand) Execute(args []string) error {
 	if err != nil {
 		return err
 	}
-	opChan, errChan := playbackFileReader.OpChan(1)
+	rcp := sync.Pool{
+		New: func() interface{} {
+			return new(RecordedOp)
+		},
+	}
+	opChan, errChan := playbackFileReader.OpChan(1, rcp)
 
 	driverOpsFiltered := filter.RemoveDriverOps || playbackFileReader.metadata.DriverOpsFiltered
 

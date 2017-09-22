@@ -86,7 +86,7 @@ func (play *PlayCommand) Execute(args []string) error {
 	var errChan <-chan error
 
 	if !play.NoPreprocess {
-		opChan, errChan = playbackFileReader.OpChan(1)
+		opChan, errChan = playbackFileReader.OpChan(1, context.recordedOpsPool)
 
 		preprocessMap, err := newPreprocessCursorManager(opChan)
 
@@ -106,7 +106,7 @@ func (play *PlayCommand) Execute(args []string) error {
 		context.CursorIDMap = preprocessMap
 	}
 
-	opChan, errChan = playbackFileReader.OpChan(play.Repeat)
+	opChan, errChan = playbackFileReader.OpChan(play.Repeat, context.recordedOpsPool)
 
 	if err := Play(context, opChan, play.Speed, play.Repeat, play.QueueTime); err != nil {
 		userInfoLogger.Logvf(Always, "Play: %v\n", err)
@@ -186,6 +186,7 @@ func Play(context *ExecutionContext,
 		} else {
 			connectionChan <- op
 		}
+
 	}
 	for connectionNum, connectionChan := range connectionChans {
 		close(connectionChan)

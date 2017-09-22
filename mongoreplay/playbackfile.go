@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/mongodb/mongo-tools/common/util"
@@ -86,8 +87,7 @@ func playbackFileReaderFromReadSeeker(rs io.ReadSeeker, filename string) (*Playb
 
 // NextRecordedOp iterates through the PlaybackFileReader to yield the next
 // RecordedOp. It returns io.EOF when successfully complete.
-func (file *PlaybackFileReader) NextRecordedOp() (*RecordedOp, error) {
-	doc := new(RecordedOp)
+func (file *PlaybackFileReader) NextRecordedOp(doc *RecordedOp) (*RecordedOp, error) {
 	err := file.Decode(doc)
 	if err != nil {
 		if err != io.EOF {
@@ -182,7 +182,7 @@ func (g *GzipReadSeeker) Seek(offset int64, whence int) (int64, error) {
 // are pushed to an error chan. Both the recorded op chan and the error chan are
 // returned by the function.
 // The error chan won't be readable until the recorded op chan gets closed.
-func (pfReader *PlaybackFileReader) OpChan(repeat int) (<-chan *RecordedOp, <-chan error) {
+func (pfReader *PlaybackFileReader) OpChan(repeat int, rcp sync.Pool) (<-chan *RecordedOp, <-chan error) {
 	ch := make(chan *RecordedOp)
 	e := make(chan error)
 
@@ -209,7 +209,8 @@ func (pfReader *PlaybackFileReader) OpChan(repeat int) (<-chan *RecordedOp, <-ch
 
 				var order int64
 				for {
-					recordedOp, err := pfReader.NextRecordedOp()
+					doc := rcp.Get().(*RecordedOp)
+					recordedOp, err := pfReader.NextRecordedOp(doc)
 					if err != nil {
 						if err == io.EOF {
 							break

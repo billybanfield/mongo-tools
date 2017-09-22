@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -98,7 +99,12 @@ func (monitor *MonitorCommand) Execute(args []string) error {
 		if err != nil {
 			return err
 		}
-		opChan, errChan = playbackFileReader.OpChan(1)
+		rcp := sync.Pool{
+			New: func() interface{} {
+				return new(RecordedOp)
+			},
+		}
+		opChan, errChan = playbackFileReader.OpChan(1, rcp)
 
 	} else {
 		ctx, err := getOpstream(monitor.OpStreamSettings)

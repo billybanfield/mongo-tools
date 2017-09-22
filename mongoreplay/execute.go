@@ -52,6 +52,8 @@ type ExecutionContext struct {
 	driverOpsFiltered bool
 
 	session *mgo.Session
+
+	recordedOpsPool sync.Pool
 }
 
 // ExecutionOptions holds the additional configuration options needed to completely
@@ -63,6 +65,11 @@ type ExecutionOptions struct {
 
 // NewExecutionContext initializes a new ExecutionContext.
 func NewExecutionContext(statColl *StatCollector, session *mgo.Session, options *ExecutionOptions) *ExecutionContext {
+	rcp := sync.Pool{
+		New: func() interface{} {
+			return new(RecordedOp)
+		},
+	}
 	return &ExecutionContext{
 		IncompleteReplies: cache.New(60*time.Second, 60*time.Second),
 		CompleteReplies:   map[string]*ReplyPair{},
@@ -71,6 +78,7 @@ func NewExecutionContext(statColl *StatCollector, session *mgo.Session, options 
 		fullSpeed:         options.fullSpeed,
 		driverOpsFiltered: options.driverOpsFiltered,
 		session:           session,
+		recordedOpsPool:   rcp,
 	}
 }
 
@@ -208,6 +216,7 @@ func (context *ExecutionContext) newExecutionConnection(start time.Time, connect
 			if shouldCollectOp(parsedOp, context.driverOpsFiltered) {
 				context.Collect(recordedOp, parsedOp, reply, msg)
 			}
+			context.recordedOpsPool.Put(recordedOp)
 		}
 		userInfoLogger.Logvf(Info, "(Connection %v) Connection ENDED.", connectionNum)
 		context.ConnectionChansWaitGroup.Done()
