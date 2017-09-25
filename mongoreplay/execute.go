@@ -264,6 +264,9 @@ func (context *ExecutionContext) newExecutionConnection(start time.Time, connect
 				context.Collect(recordedOp, parsedOp, reply, msg)
 			}
 			context.recordedOpsPool.Put(recordedOp)
+			opPool := context.opsPool[parsedOp.OpCode()]
+			opPool.Put(parsedOp)
+
 		}
 		userInfoLogger.Logvf(Info, "(Connection %v) Connection ENDED.", connectionNum)
 		context.ConnectionChansWaitGroup.Done()
