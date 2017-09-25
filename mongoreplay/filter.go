@@ -94,6 +94,7 @@ func Filter(opChan <-chan *RecordedOp,
 
 	filterFuncs := []filterFunc{}
 	if removeDriverOps {
+		filterDriverOps := filterDriverOpsFactory()
 		filterFuncs = append(filterFuncs, filterDriverOps)
 	}
 
@@ -205,12 +206,15 @@ func (filter *FilterCommand) ValidateParams(args []string) error {
 
 type filterFunc func(op *RecordedOp) (bool, error)
 
-func filterDriverOps(op *RecordedOp) (bool, error) {
-	parsedOp, err := op.RawOp.Parse()
-	if err != nil {
-		return false, err
+func filterDriverOpsFactory() filterFunc {
+	opsPool := newOpsPool()
+	return func(op *RecordedOp) (bool, error) {
+		parsedOp, err := op.RawOp.Parse(opsPool)
+		if err != nil {
+			return false, err
+		}
+		return IsDriverOp(parsedOp), nil
 	}
-	return IsDriverOp(parsedOp), nil
 }
 
 func pretruncateFilterFactory(initialTime time.Time) filterFunc {

@@ -54,6 +54,8 @@ type ExecutionContext struct {
 	session *mgo.Session
 
 	recordedOpsPool sync.Pool
+
+	opsPool opsPool
 }
 
 // ExecutionOptions holds the additional configuration options needed to completely
@@ -74,7 +76,57 @@ func NewExecutionContext(statColl *StatCollector, session *mgo.Session, options 
 		driverOpsFiltered: options.driverOpsFiltered,
 		session:           session,
 		recordedOpsPool:   fetchRecordedOpPool(),
+		opsPool:           newOpsPool(),
 	}
+}
+
+type opsPool map[OpCode]sync.Pool
+
+func newOpsPool() opsPool {
+
+	return map[OpCode]sync.Pool{
+		OpCodeQuery: sync.Pool{
+			New: func() interface{} {
+				return new(QueryOp)
+			},
+		},
+		OpCodeReply: sync.Pool{
+			New: func() interface{} {
+				return new(ReplyOp)
+			},
+		},
+		OpCodeInsert: sync.Pool{
+			New: func() interface{} {
+				return new(InsertOp)
+			},
+		},
+		OpCodeKillCursors: sync.Pool{
+			New: func() interface{} {
+				return new(KillCursorsOp)
+			},
+		},
+		OpCodeDelete: sync.Pool{
+			New: func() interface{} {
+				return new(DeleteOp)
+			},
+		},
+		OpCodeUpdate: sync.Pool{
+			New: func() interface{} {
+				return new(UpdateOp)
+			},
+		},
+		OpCodeCommand: sync.Pool{
+			New: func() interface{} {
+				return new(CommandOp)
+			},
+		},
+		OpCodeCommandReply: sync.Pool{
+			New: func() interface{} {
+				return new(CommandReplyOp)
+			},
+		},
+	}
+
 }
 
 // AddFromWire adds a from-wire reply to its IncompleteReplies ReplyPair and
@@ -200,7 +252,7 @@ func (context *ExecutionContext) newExecutionConnection(start time.Time, connect
 					toolDebugLogger.Logvf(Always, "context.Execute error: %v", err)
 				}
 			} else {
-				parsedOp, err = recordedOp.Parse()
+				parsedOp, err = recordedOp.Parse(context.opsPool)
 				if err != nil {
 					toolDebugLogger.Logvf(Always, "Execution Connection error: %v", err)
 				}
@@ -221,7 +273,7 @@ func (context *ExecutionContext) newExecutionConnection(start time.Time, connect
 
 // Execute plays a particular command on an mgo socket.
 func (context *ExecutionContext) Execute(op *RecordedOp, socket *mgo.MongoSocket) (Op, Replyable, error) {
-	opToExec, err := op.RawOp.Parse()
+	opToExec, err := op.RawOp.Parse(context.opsPool)
 	var reply Replyable
 
 	if err != nil {

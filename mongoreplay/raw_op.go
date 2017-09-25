@@ -132,7 +132,7 @@ func (op *RawOp) ShortenReply() error {
 }
 
 // Parse returns the underlying op from its given RawOp form.
-func (op *RawOp) Parse() (Op, error) {
+func (op *RawOp) Parse(opsPool opsPool) (Op, error) {
 	if op.Header.OpCode == OpCodeCompressed {
 		newMsg, err := mgo.DecompressMessage(op.Body)
 		if err != nil {
@@ -142,26 +142,41 @@ func (op *RawOp) Parse() (Op, error) {
 		op.Body = newMsg
 	}
 
-	var parsedOp Op
+	opPool, ok := opsPool[op.Header.OpCode]
+	if !ok {
+		return nil, nil
+	}
+	fetchedOpFromPool := opPool.Get()
+	parsedOp := fetchedOpFromPool.(Op)
+
 	switch op.Header.OpCode {
 	case OpCodeQuery:
-		parsedOp = &QueryOp{Header: op.Header}
+		query := parsedOp.(*QueryOp)
+		query.Header = op.Header
 	case OpCodeReply:
-		parsedOp = &ReplyOp{Header: op.Header}
+		reply := parsedOp.(*ReplyOp)
+		reply.Header = op.Header
 	case OpCodeGetMore:
-		parsedOp = &GetMoreOp{Header: op.Header}
+		getMore := parsedOp.(*GetMoreOp)
+		getMore.Header = op.Header
 	case OpCodeInsert:
-		parsedOp = &InsertOp{Header: op.Header}
+		insert := parsedOp.(*InsertOp)
+		insert.Header = op.Header
 	case OpCodeKillCursors:
-		parsedOp = &KillCursorsOp{Header: op.Header}
+		killCursors := parsedOp.(*KillCursorsOp)
+		killCursors.Header = op.Header
 	case OpCodeDelete:
-		parsedOp = &DeleteOp{Header: op.Header}
+		delete := parsedOp.(*DeleteOp)
+		delete.Header = op.Header
 	case OpCodeUpdate:
-		parsedOp = &UpdateOp{Header: op.Header}
+		update := parsedOp.(*UpdateOp)
+		update.Header = op.Header
 	case OpCodeCommand:
-		parsedOp = &CommandOp{Header: op.Header}
+		command := parsedOp.(*CommandOp)
+		command.Header = op.Header
 	case OpCodeCommandReply:
-		parsedOp = &CommandReplyOp{Header: op.Header}
+		commandReply := parsedOp.(*CommandReplyOp)
+		commandReply.Header = op.Header
 	default:
 		return nil, nil
 	}

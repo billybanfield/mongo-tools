@@ -163,6 +163,7 @@ func newPreprocessCursorManager(opChan <-chan *RecordedOp) (*preprocessCursorMan
 	}
 
 	cursorsSeen := &cursorsSeenMap{}
+	opsPool := newOpsPool()
 
 	// Loop over all the ops found in the file
 	for op := range opChan {
@@ -183,7 +184,7 @@ func newPreprocessCursorManager(opChan <-chan *RecordedOp) (*preprocessCursorMan
 			}
 		}
 
-		parsedOp, err := op.RawOp.Parse()
+		parsedOp, err := op.RawOp.Parse(opsPool)
 		if err != nil {
 			userInfoLogger.Logvf(DebugLow, "preprocessing op parse error: %v", err)
 			continue

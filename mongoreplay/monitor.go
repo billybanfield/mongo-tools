@@ -138,8 +138,10 @@ func (monitor *MonitorCommand) Execute(args []string) error {
 	}
 	defer statColl.Close()
 
+	opsPool := newOpsPool()
+
 	for op := range opChan {
-		parsedOp, err := op.RawOp.Parse()
+		parsedOp, err := op.RawOp.Parse(opsPool)
 		if err != nil {
 			return err
 		}
