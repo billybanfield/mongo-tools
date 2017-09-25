@@ -54,8 +54,6 @@ type ExecutionContext struct {
 	session *mgo.Session
 
 	recordedOpsPool sync.Pool
-
-	opsPool opsPool
 }
 
 // ExecutionOptions holds the additional configuration options needed to completely
@@ -76,7 +74,6 @@ func NewExecutionContext(statColl *StatCollector, session *mgo.Session, options 
 		driverOpsFiltered: options.driverOpsFiltered,
 		session:           session,
 		recordedOpsPool:   fetchRecordedOpPool(),
-		opsPool:           newOpsPool(),
 	}
 }
 
@@ -88,6 +85,11 @@ func newOpsPool() opsPool {
 		OpCodeQuery: sync.Pool{
 			New: func() interface{} {
 				return new(QueryOp)
+			},
+		},
+		OpCodeGetMore: sync.Pool{
+			New: func() interface{} {
+				return new(GetMoreOp)
 			},
 		},
 		OpCodeReply: sync.Pool{
@@ -217,6 +219,8 @@ func (context *ExecutionContext) handleCompletedReplies() error {
 func (context *ExecutionContext) newExecutionConnection(start time.Time, connectionNum int64) chan<- *RecordedOp {
 	ch := make(chan *RecordedOp, 10000)
 	context.ConnectionChansWaitGroup.Add(1)
+	// make the pool in this function
+	opsPool := newOpsPool()
 
 	go func() {
 		now := time.Now()
@@ -247,12 +251,12 @@ func (context *ExecutionContext) newExecutionConnection(start time.Time, connect
 					}
 				}
 				userInfoLogger.Logvf(DebugHigh, "(Connection %v) op %v", connectionNum, recordedOp.String())
-				parsedOp, reply, err = context.Execute(recordedOp, socket)
+				parsedOp, reply, err = context.Execute(recordedOp, socket, opsPool)
 				if err != nil {
 					toolDebugLogger.Logvf(Always, "context.Execute error: %v", err)
 				}
 			} else {
-				parsedOp, err = recordedOp.Parse(context.opsPool)
+				parsedOp, err = recordedOp.Parse(opsPool)
 				if err != nil {
 					toolDebugLogger.Logvf(Always, "Execution Connection error: %v", err)
 				}
@@ -264,9 +268,8 @@ func (context *ExecutionContext) newExecutionConnection(start time.Time, connect
 				context.Collect(recordedOp, parsedOp, reply, msg)
 			}
 			context.recordedOpsPool.Put(recordedOp)
-			opPool := context.opsPool[parsedOp.OpCode()]
+			opPool := opsPool[parsedOp.OpCode()]
 			opPool.Put(parsedOp)
-
 		}
 		userInfoLogger.Logvf(Info, "(Connection %v) Connection ENDED.", connectionNum)
 		context.ConnectionChansWaitGroup.Done()
@@ -275,8 +278,8 @@ func (context *ExecutionContext) newExecutionConnection(start time.Time, connect
 }
 
 // Execute plays a particular command on an mgo socket.
-func (context *ExecutionContext) Execute(op *RecordedOp, socket *mgo.MongoSocket) (Op, Replyable, error) {
-	opToExec, err := op.RawOp.Parse(context.opsPool)
+func (context *ExecutionContext) Execute(op *RecordedOp, socket *mgo.MongoSocket, opsPool opsPool) (Op, Replyable, error) {
+	opToExec, err := op.RawOp.Parse(opsPool)
 	var reply Replyable
 
 	if err != nil {

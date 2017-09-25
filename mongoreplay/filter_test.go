@@ -95,9 +95,10 @@ func TestRemoveDriverOpsFromFile(t *testing.T) {
 		// types of operations are found
 		numOpsFound := 0
 		numDriverOpsFound := 0
+		opsPool := newOpsPool()
 		for op := range opChan {
 			numOpsFound++
-			parsedOp, err := op.RawOp.Parse()
+			parsedOp, err := op.RawOp.Parse(opsPool)
 			if err != nil {
 				t.Error(err)
 			}

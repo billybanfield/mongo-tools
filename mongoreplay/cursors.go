@@ -222,6 +222,11 @@ func newPreprocessCursorManager(opChan <-chan *RecordedOp) (*preprocessCursorMan
 			cursorsSeen.trackReplied(cursorID, op)
 
 		}
+		parsedOpPool, ok := opsPool[parsedOp.OpCode()]
+		if !ok {
+			panic(parsedOp.OpCode())
+		}
+		parsedOpPool.Put(parsedOp)
 	}
 
 	for cursorID, counter := range *cursorsSeen {

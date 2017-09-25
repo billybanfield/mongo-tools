@@ -29,7 +29,8 @@ func TestOpGetMore(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	receivedOp, err := result.RawOp.Parse()
+	opsPool := newOpsPool()
+	receivedOp, err := result.RawOp.Parse(opsPool)
 	if err != nil {
 		t.Error(err)
 	}
@@ -61,7 +62,8 @@ func TestOpDelete(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	receivedOp, err := result.RawOp.Parse()
+	opsPool := newOpsPool()
+	receivedOp, err := result.RawOp.Parse(opsPool)
 	if err != nil {
 		t.Error(err)
 	}
@@ -100,7 +102,8 @@ func TestInsertOp(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	receivedOp, err := result.RawOp.Parse()
+	opsPool := newOpsPool()
+	receivedOp, err := result.RawOp.Parse(opsPool)
 	if err != nil {
 		t.Error(err)
 	}
@@ -136,7 +139,8 @@ func TestKillCursorsOp(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	receivedOp, err := result.RawOp.Parse()
+	opsPool := newOpsPool()
+	receivedOp, err := result.RawOp.Parse(opsPool)
 	if err != nil {
 		t.Error(err)
 	}
@@ -170,7 +174,8 @@ func TestQueryOp(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	receivedOp, err := result.RawOp.Parse()
+	opsPool := newOpsPool()
+	receivedOp, err := result.RawOp.Parse(opsPool)
 	if err != nil {
 		t.Error(err)
 	}
@@ -210,7 +215,8 @@ func TestOpUpdate(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	receivedOp, err := result.RawOp.Parse()
+	opsPool := newOpsPool()
+	receivedOp, err := result.RawOp.Parse(opsPool)
 	if err != nil {
 		t.Error(err)
 	}
@@ -253,7 +259,8 @@ func TestCommandOp(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	receivedOp, err := result.RawOp.Parse()
+	opsPool := newOpsPool()
+	receivedOp, err := result.RawOp.Parse(opsPool)
 	if err != nil {
 		t.Error(err)
 	}
@@ -527,7 +534,8 @@ func TestShortenLegacyReply(t *testing.T) {
 	result.Header.MessageLength = int32(len(result.RawOp.Body))
 
 	// reply should be functional and parseable
-	parsed, err := result.RawOp.Parse()
+	opsPool := newOpsPool()
+	parsed, err := result.RawOp.Parse(opsPool)
 	if err != nil {
 		t.Errorf("error parsing op: %v", err)
 	}
@@ -543,7 +551,7 @@ func TestShortenLegacyReply(t *testing.T) {
 	// shorten the reply
 	result.ShortenReply()
 
-	parsed, err = result.RawOp.Parse()
+	parsed, err = result.RawOp.Parse(opsPool)
 	if err != nil {
 		t.Errorf("error parsing op: %v", err)
 	}
@@ -601,7 +609,8 @@ func TestShortenCommandReply(t *testing.T) {
 	result, err := generator.fetchRecordedOpsFromConn(&op.CommandReplyOp)
 
 	// reply should be functional and parseable
-	parsed, err := result.RawOp.Parse()
+	opsPool := newOpsPool()
+	parsed, err := result.RawOp.Parse(opsPool)
 	if err != nil {
 		t.Errorf("error parsing op: %#v", err)
 	}
@@ -634,7 +643,7 @@ func TestShortenCommandReply(t *testing.T) {
 	// shorten the reply
 	result.ShortenReply()
 
-	parsed, err = result.RawOp.Parse()
+	parsed, err = result.RawOp.Parse(opsPool)
 	if err != nil {
 		t.Errorf("error parsing op: %v", err)
 	}
