@@ -30,8 +30,9 @@ func TestRepeatGeneration(t *testing.T) {
 		t.Fatalf("unable to read from playback file %v", err)
 	}
 
+	rcp := fetchRecordedOpPool()
 	repeat := 2
-	opChan, errChan := playbackReader.OpChan(repeat)
+	opChan, errChan := playbackReader.OpChan(repeat, rcp)
 	op1, ok := <-opChan
 	if !ok {
 		err, ok := <-errChan
@@ -87,8 +88,9 @@ func TestPlayOpEOF(t *testing.T) {
 		t.Fatalf("unable to read from playback file %v", err)
 	}
 
+	rcp := fetchRecordedOpPool()
 	repeat := 2
-	opChan, errChan := playbackReader.OpChan(repeat)
+	opChan, errChan := playbackReader.OpChan(repeat, rcp)
 
 	op1, ok := <-opChan
 	if !ok {

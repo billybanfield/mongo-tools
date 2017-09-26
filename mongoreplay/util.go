@@ -8,6 +8,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	mgo "github.com/10gen/llmgo"
@@ -502,4 +503,12 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func fetchRecordedOpPool() sync.Pool {
+	return sync.Pool{
+		New: func() interface{} {
+			return new(RecordedOp)
+		},
+	}
 }

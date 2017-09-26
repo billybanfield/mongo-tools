@@ -87,7 +87,9 @@ func TestRemoveDriverOpsFromFile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("couldn't create playbackfile reader %v", err)
 		}
-		opChan, errChan := playbackReader.OpChan(1)
+
+		rcp := fetchRecordedOpPool()
+		opChan, errChan := playbackReader.OpChan(1, rcp)
 
 		// loop over the found operations and verify that the correct number and
 		// types of operations are found
@@ -192,7 +194,8 @@ func TestSplitInputFile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("couldn't create playbackfile reader %v", err)
 			}
-			opChan, errChan := playbackReader.OpChan(1)
+			rcp := fetchRecordedOpPool()
+			opChan, errChan := playbackReader.OpChan(1, rcp)
 
 			for op := range opChan {
 				expectedFileNum := op.SeenConnectionNum % int64(len(outfiles))
@@ -289,7 +292,8 @@ func TestRemoveOpsBeforeTime(t *testing.T) {
 		if err != nil {
 			t.Fatalf("couldn't create playbackfile reader %v", err)
 		}
-		resultOpChan, errChan := playbackReader.OpChan(1)
+		rcp := fetchRecordedOpPool()
+		resultOpChan, errChan := playbackReader.OpChan(1, rcp)
 
 		numOpsSeen := 0
 		for op := range resultOpChan {
@@ -388,7 +392,8 @@ func TestRemoveOpsAfterDuration(t *testing.T) {
 		if err != nil {
 			t.Fatalf("couldn't create playbackfile reader %v", err)
 		}
-		resultOpChan, errChan := playbackReader.OpChan(1)
+		rcp := fetchRecordedOpPool()
+		resultOpChan, errChan := playbackReader.OpChan(1, rcp)
 
 		numOpsSeen := 0
 		for op := range resultOpChan {

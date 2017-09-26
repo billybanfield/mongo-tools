@@ -146,8 +146,10 @@ func TestRecordEOF(t *testing.T) {
 	}
 
 	count := 1
+	rcp := fetchRecordedOpPool()
 	for {
-		recordedOp, err := playbackReader.NextRecordedOp()
+		doc := rcp.Get().(*RecordedOp)
+		recordedOp, err := playbackReader.NextRecordedOp(doc)
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -160,6 +162,7 @@ func TestRecordEOF(t *testing.T) {
 			}
 		}
 		count++
+		rcp.Put(doc)
 	}
 
 }
@@ -218,8 +221,9 @@ func pcapTestHelper(t *testing.T, pcapFname string, preprocess bool, verifier ve
 	context := NewExecutionContext(statCollector, replaySession, &ExecutionOptions{})
 
 	var preprocessMap preprocessCursorManager
+	rcp := fetchRecordedOpPool()
 	if preprocess {
-		opChan, errChan := playbackReader.OpChan(1)
+		opChan, errChan := playbackReader.OpChan(1, rcp)
 		preprocessMap, err := newPreprocessCursorManager(opChan)
 
 		if err != nil {
@@ -238,7 +242,7 @@ func pcapTestHelper(t *testing.T, pcapFname string, preprocess bool, verifier ve
 		context.CursorIDMap = preprocessMap
 	}
 
-	opChan, errChan := playbackReader.OpChan(1)
+	opChan, errChan := playbackReader.OpChan(1, rcp)
 
 	t.Log("Reading ops from playback file")
 	err = Play(context, opChan, testSpeed, 1, 30)
