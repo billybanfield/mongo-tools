@@ -431,7 +431,62 @@ func (d *decoder) readDocWith(f func(kind byte, name string)) {
 var blackHole = settableValueOf(struct{}{})
 
 func (d *decoder) dropElem(kind byte) {
-	d.readElemTo(blackHole, kind)
+	switch kind {
+	case 0x01, 0x09, 0x11, 0x12: // double, utc datetime, timestamp, int64
+		d.i += 8
+	case 0x02, 0x0D, 0x0E: // string, javascript, symbol
+		l := int(d.readInt32())
+		if l <= 0 || d.i+l >= len(d.in) || d.in[d.i+l-1] != 0x00 {
+			corrupted()
+		}
+		d.i += l
+	case 0x03, 0x04: // doc, array
+		d.skipDoc()
+	case 0x05: // binary
+		l := int(d.readInt32())
+		k := d.readByte()
+		if k == 0x02 && l > 4 {
+			rl := int(d.readInt32())
+			if rl != l-4 {
+				corrupted()
+			}
+		}
+		d.i += l
+	case 0x06: // undefined
+	case 0x07: // objectID
+		d.i += 12
+	case 0x08:
+		k := d.readByte()
+		if k != 0x00 && k != 0x01 {
+			corrupted()
+		}
+	case 0x0A: // null
+	case 0x0B: // regex
+		d.readCStr()
+		d.readCStr()
+	case 0x0C: // dbpointer
+		d.dropElem(0x02)
+		d.i += 12
+	case 0x0F:
+		start := d.i
+		l := int(d.readInt32())
+		d.dropElem(0x02) // string
+		d.skipDoc()
+		if d.i != start+l {
+			corrupted()
+		}
+	case 0x10: // int32
+		d.i += 4
+	case 0x13: // decimal
+		d.i += 16
+	case 0xFF, 0x7F: //min key, max key
+	default:
+		d.readElemTo(blackHole, kind)
+	}
+
+	if d.i > len(d.in) {
+		corrupted()
+	}
 }
 
 // Attempt to decode an element from the document and put it into out.
@@ -740,6 +795,15 @@ func (d *decoder) readElemTo(out reflect.Value, kind byte) (good bool) {
 
 // --------------------------------------------------------------------------
 // Parsers of basic types.
+
+func (d *decoder) skipDoc() {
+	end := int(d.readInt32())
+	end += d.i - 4
+	if end <= d.i || end > len(d.in) || d.in[end-1] != '\x00' {
+		corrupted()
+	}
+	d.i = end
+}
 
 func (d *decoder) readRegEx() RegEx {
 	re := RegEx{}

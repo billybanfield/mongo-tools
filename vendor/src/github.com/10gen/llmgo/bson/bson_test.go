@@ -38,8 +38,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/10gen/llmgo/bson"
 	. "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/yaml.v2"
 )
 

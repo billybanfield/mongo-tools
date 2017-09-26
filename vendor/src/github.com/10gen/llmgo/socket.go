@@ -70,6 +70,7 @@ type MongoSocket struct {
 	gotNonce      sync.Cond
 	dead          error
 	serverInfo    *mongoServerInfo
+	sliceCache    [][]byte
 }
 
 type QueryOpFlags uint32
@@ -267,6 +268,7 @@ func NewSocket(server *MongoServer, conn net.Conn, timeout time.Duration) *Mongo
 		server:     server,
 		replyFuncs: make(map[uint32]replyFunc),
 	}
+	socket.sliceCache = make([][]byte, 0, 128)
 	socket.gotNonce.L = &socket.Mutex
 	if err := socket.InitialAcquire(server.Info(), timeout); err != nil {
 		panic("newSocket: InitialAcquire returned error: " + err.Error())
@@ -280,12 +282,14 @@ func NewSocket(server *MongoServer, conn net.Conn, timeout time.Duration) *Mongo
 
 func NewDumbSocket(conn net.Conn) *MongoSocket {
 	server := &MongoServer{}
-	return &MongoSocket{
+	socket := &MongoSocket{
 		server:     server,
 		addr:       server.Addr,
 		Conn:       conn,
 		replyFuncs: make(map[uint32]replyFunc),
 	}
+	socket.sliceCache = make([][]byte, 0, 128)
+	return socket
 }
 
 // Server returns the server that the socket is associated with.
@@ -473,7 +477,9 @@ func (socket *MongoSocket) Query(ops ...interface{}) (err error) {
 		ops = append(lops, ops...)
 	}
 
-	buf := make([]byte, 0, 256)
+	socket.Lock()
+	buf := socket.getByteSlice()
+	socket.Unlock()
 
 	// Serialize operations synchronously to avoid interrupting
 	// other goroutines while we can't really be sending data.
@@ -634,6 +640,7 @@ func (socket *MongoSocket) Query(ops ...interface{}) (err error) {
 				request.replyFunc(dead, nil, nil)
 			}
 		}
+		socket.putByteSlice(buf)
 		return dead
 	}
 
@@ -657,12 +664,35 @@ func (socket *MongoSocket) Query(ops ...interface{}) (err error) {
 
 	socket.updateDeadline(writeDeadline)
 	_, err = socket.Conn.Write(buf)
+	socket.putByteSlice(buf)
 
 	if !wasWaiting && requestCount > 0 {
 		socket.updateDeadline(readDeadline)
 	}
 	socket.Unlock()
 	return err
+}
+
+var defaultBufferSize = 8196
+
+// Get slice from cache or create a new one.  Must be called when socket is
+// locked!
+func (socket *MongoSocket) getByteSlice() []byte {
+	var buf []byte
+	if len(socket.sliceCache) > 0 {
+		buf = socket.sliceCache[len(socket.sliceCache)-1]
+		socket.sliceCache = socket.sliceCache[0 : len(socket.sliceCache)-1]
+	} else {
+		buf = make([]byte, 0, defaultBufferSize)
+	}
+	return buf
+}
+
+// return buffer to cache if it's the same as the starting capacity
+func (socket *MongoSocket) putByteSlice(buf []byte) {
+	if (len(socket.sliceCache) < cap(socket.sliceCache)) && cap(buf) == defaultBufferSize {
+		socket.sliceCache = append(socket.sliceCache, buf[0:0])
+	}
 }
 
 // Estimated minimum cost per socket: 1 goroutine + memory for the largest
