@@ -109,6 +109,15 @@ func (s *S) TestMarshalSampleItems(c *C) {
 	}
 }
 
+func (s *S) TestMarshalToSampleItems(c *C) {
+	for i, item := range sampleItems {
+		data := make([]byte, 0, 8)
+		err := bson.MarshalTo(item.obj, &data)
+		c.Assert(err, IsNil)
+		c.Assert(string(data), Equals, item.data, Commentf("Failed on item %d", i))
+	}
+}
+
 func (s *S) TestUnmarshalSampleItems(c *C) {
 	for i, item := range sampleItems {
 		value := bson.M{}

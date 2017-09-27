@@ -903,11 +903,11 @@ func addBSON(b []byte, doc interface{}) ([]byte, error) {
 	if doc == nil {
 		return append(b, 5, 0, 0, 0, 0), nil
 	}
-	data, err := bson.Marshal(doc)
+	err := bson.MarshalTo(doc, &b)
 	if err != nil {
 		return b, err
 	}
-	return append(b, data...), nil
+	return b, nil
 }
 
 func setInt32(b []byte, pos int, i int32) {
