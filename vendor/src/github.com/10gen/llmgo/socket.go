@@ -208,6 +208,17 @@ type CommandReplyOp struct {
 	OutputDocs   []interface{}
 }
 
+type MsgOp struct {
+	uint32 Flags
+	uint32 Checksum
+	msgSection Section
+}
+
+type msgSection {
+	payloadType uint8
+	data interface{}
+}
+
 // replyFuncCommandArgs contains the arguments needed by the replyFunc to complete a CommandReplyOp.
 type replyFuncCommandArgs struct {
 	// op is the newly generated CommandReplyOp
