@@ -209,14 +209,14 @@ type CommandReplyOp struct {
 }
 
 type MsgOp struct {
-	uint32 Flags
-	uint32 Checksum
-	msgSection Section
+	Flags    uint32
+	Sections []MsgSection
+	Checksum uint32
 }
 
-type msgSection {
-	payloadType uint8
-	data interface{}
+type MsgSection struct {
+	PayloadType uint8
+	Data        interface{}
 }
 
 // replyFuncCommandArgs contains the arguments needed by the replyFunc to complete a CommandReplyOp.
