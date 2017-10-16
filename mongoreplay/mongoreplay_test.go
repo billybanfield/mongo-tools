@@ -289,6 +289,43 @@ func TestCommandOp(t *testing.T) {
 	}
 }
 
+func TestOpMsg(t *testing.T) {
+	testCases := []struct {
+		name    string
+		inputOp mgo.MsgOp
+	}{
+		{
+			name: "Payload type 0 test",
+			inputOp: mgo.MsgOp{
+				Flags: 0,
+				Sections: []mgo.MsgSection{
+					mgo.MsgSection{
+						PayloadType: uint8(0),
+						Data:        bson.D{{"doc", 1}},
+					},
+				},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		generator := newRecordedOpGenerator()
+		t.Logf("case: %#s\n", testCase.name)
+		result, err := generator.fetchRecordedOpsFromConn(&testCase.inputOp)
+		if err != nil {
+			t.Error(err)
+		}
+		t.Logf("result: %#v", result)
+		receivedOp, err := result.RawOp.Parse()
+		if err != nil {
+			t.Error(err)
+		}
+		msgOp := receivedOp.(*MsgOp)
+		t.Logf("msg: %#s\n", msgOp)
+	}
+
+}
+
 func TestPreciseTimeMarshal(t *testing.T) {
 	t1 := time.Date(2015, 4, 8, 15, 16, 23, 651387237, time.UTC)
 	preciseTime := &PreciseTime{t1}

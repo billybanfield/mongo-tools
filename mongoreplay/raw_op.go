@@ -162,6 +162,8 @@ func (op *RawOp) Parse() (Op, error) {
 		parsedOp = &CommandOp{Header: op.Header}
 	case OpCodeCommandReply:
 		parsedOp = &CommandReplyOp{Header: op.Header}
+	case OpCodeMessage:
+		parsedOp = &MsgOp{Header: op.Header}
 	default:
 		return nil, nil
 	}

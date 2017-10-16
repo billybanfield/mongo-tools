@@ -4,48 +4,49 @@ import (
 	"io"
 
 	"github.com/10gen/llmgo"
+	"github.com/10gen/llmgo/bson"
 )
 
-// OpMsg sends a diagnostic message to the database. The database sends back a fixed response.
-// OpMsg is Deprecated
+// MsgOp sends a diagnostic message to the database. The database sends back a fixed response.
+// MsgOp is Deprecated
 // http://docs.mongodb.org/meta-driver/latest/legacy/mongodb-wire-protocol/#op-msg
 
-type OpMsgReplyable OpMsg
+type MsgOpReplyable MsgOp
 
-type OpMsgCursorsRewriteable OpMsg
+type MsgOpCursorsRewriteable MsgOp
 
-type OpMsg struct {
+type MsgOp struct {
 	Header MsgHeader
 	mgo.MsgOp
-	Docs         []bson.Raw
-	Latency      time.Duration
-	cursorCached bool
-	cursorID     int64
+	/*
+		Docs         []bson.Raw
+		Latency      time.Duration
+		cursorCached bool
+		cursorID     int64
+	*/
 }
 
-type payloadType1 struct {
-	size       int32
-	identifier string
-	docs       []bson.Raw
-}
-
-// Abbreviated does nothing for an OpMsg
-func (op *OpMsg) Abbreviated(chars int) string {
+// Abbreviated does nothing for an MsgOp
+func (op *MsgOp) Abbreviated(chars int) string {
 	return ""
 }
 
-// OpCode returns the OpCode for the OpMsg.
-func (op *OpMsg) OpCode() OpCode {
+// OpCode returns the OpCode for the MsgOp.
+func (op *MsgOp) OpCode() OpCode {
 	return OpCodeMessage
 }
 
-// FromReader does nothing for an OpMsg
-func (op *OpMsg) FromReader(r io.Reader) error {
+// FromReader does nothing for an MsgOp
+func (op *MsgOp) FromReader(r io.Reader) error {
 	// READ THE  FLAGS
 	buf := [4]byte{}
-	_, err := io.ReadFull(r, buf)
+	_, err := io.ReadFull(r, buf[:])
+	if err != nil {
+		return err
+	}
 
-	op.Flags = getInt32(buf, 0)
+	var checksumLength int
+	op.Flags = uint32(getInt32(buf[:], 0))
 	var checksumPresent bool
 	if (op.Flags & (1 << 1)) == 1 {
 		checksumPresent = true
@@ -53,42 +54,53 @@ func (op *OpMsg) FromReader(r io.Reader) error {
 	}
 
 	offset := 4
-	for op.Header.MessageLength-offset-checkSumLength > 0 {
-		sequence, length, err := readSection(r)
+	for int(op.Header.MessageLength)-offset-checksumLength > 0 {
+		section, length, err := readSection(r)
+		if err != nil {
+			return err
+		}
+		op.Sections = append(op.Sections, section)
 		offset += length
 	}
 	if checksumPresent {
-		op.Checksum = getInt32(buf, 0)
+		_, err := io.ReadFull(r, buf[:])
+		if err != nil {
+			return err
+		}
+		op.Checksum = uint32(getInt32(buf[:], 0))
 	}
+	return nil
 }
 
-// Execute does nothing for an OpMsg
-func (op *OpMsg) Execute(socket *mgo.MongoSocket) (*ReplyOp, error) {
+// Execute does nothing for an MsgOp
+func (op *MsgOp) Execute(socket *mgo.MongoSocket) (Replyable, error) {
 	return nil, nil
 }
 
 // Functions for when this is a reply
-func (opMsg *OpMsgReplyable) getCursorID() (int64, error) {
+func (msgOp *MsgOpReplyable) getCursorID() (int64, error) {
 	return 0, nil
 }
-func (opMsg *OpMsgReplyable) Meta() OpMetadata {
+func (msgOp *MsgOp) Meta() OpMetadata {
 	return OpMetadata{}
 }
-func (opMsg *OpMsgReplyable) getLatencyMicros() int64 {
+func (msgOp *MsgOpReplyable) getLatencyMicros() int64 {
 	return 0
 }
-func (opMsg *OpMsgReplyable) getNumReturned() int {
+func (msgOp *MsgOpReplyable) getNumReturned() int {
 	return 0
 }
-func (opMsg *OpMsgReplyable) getErrors() []error {
+func (msgOp *MsgOpReplyable) getErrors() []error {
 	return []error{}
 }
 
 // Functions for when this has rewriteable cursors
 
-func (opMsg *OpMsgCursorsReWriteable) getCursorIDs() ([]int64, error) {
+func (msgOp *MsgOpCursorsRewriteable) getCursorIDs() ([]int64, error) {
+	return []int64{}, nil
 }
-func (opMsg *OpMsgCursorsReWriteable) setCursorIDs(cursors []int64) error {
+func (msgOp *MsgOpCursorsRewriteable) setCursorIDs(cursors []int64) error {
+	return nil
 }
 
 func readSection(r io.Reader) (mgo.MsgSection, int, error) {
@@ -110,7 +122,7 @@ func readSection(r io.Reader) (mgo.MsgSection, int, error) {
 	//    document*  documents;
 
 	// Case 1: payload == 0
-	if (buf[0] && 1) == 0 {
+	if (buf[0] & 1) == 0 {
 		section.PayloadType = uint8(0)
 		docAsSlice, err := ReadDocument(r)
 		doc := &bson.Raw{}
@@ -121,40 +133,50 @@ func readSection(r io.Reader) (mgo.MsgSection, int, error) {
 		if err != nil {
 			return mgo.MsgSection{}, 0, err
 		}
-		section.Payload = doc
+		section.Data = doc
 		offset += len(docAsSlice)
 		return section, offset, nil
 	}
 	// Case 2: payload == 1
 	section.PayloadType = uint8(1)
 
-	_, err := io.ReadFull(r, buf)
+	_, err = io.ReadFull(r, buf[:])
 	if err != nil {
 		return mgo.MsgSection{}, 0, err
 	}
-	var payload payloadType1
+
+	var payload mgo.PayloadType1
 
 	// Fetch size
-	payload.size = getInt32(buf, 0)
+	payload.Size = getInt32(buf[:], 0)
 	identifier, err := readCStringFromReader(r)
 	if err != nil {
 		return mgo.MsgSection{}, 0, err
 	}
 	offset += len(identifier)
-	payload.identifier = string(identifier)
+	payload.Identifier = string(identifier)
 
 	bytesReadOfPayload := len(identifier) + 4
+
+	docs := []bson.Raw{}
 	//read all the present documents
-	for bytesReadOfPayload < size {
+	for bytesReadOfPayload < int(payload.Size) {
 		docAsSlice, err := ReadDocument(r)
 		if err != nil {
 			return mgo.MsgSection{}, 0, err
 		}
-		docs := &bson.Raw{}
-		err = bson.Unmarshal(docsAsSlice, doc)
+
+		doc := bson.Raw{}
+		err = bson.Unmarshal(docAsSlice, &doc)
 		if err != nil {
 			return mgo.MsgSection{}, 0, err
 		}
+		docs = append(docs, doc)
+		offset += len(docAsSlice)
+		bytesReadOfPayload += len(docAsSlice)
 	}
+	payload.Docs = docs
+	section.Data = payload
 
+	return section, offset, nil
 }

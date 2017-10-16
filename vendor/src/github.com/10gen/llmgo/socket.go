@@ -51,6 +51,7 @@ const (
 	dbCommand      = 2010
 	dbCommandReply = 2011
 	dbCompressed   = 2012
+	dbMessage      = 2013
 )
 
 type replyFunc func(err error, rfl *replyFuncLegacyArgs, rfc *replyFuncCommandArgs)
@@ -217,6 +218,11 @@ type MsgOp struct {
 type MsgSection struct {
 	PayloadType uint8
 	Data        interface{}
+}
+type PayloadType1 struct {
+	Size       int32
+	Identifier string
+	Docs       []bson.Raw
 }
 
 // replyFuncCommandArgs contains the arguments needed by the replyFunc to complete a CommandReplyOp.
@@ -497,6 +503,8 @@ func (socket *MongoSocket) Query(ops ...interface{}) (err error) {
 		debugf("Socket %p to %s: serializing op: %#v", socket, socket.addr, op)
 		start := len(buf)
 		var replyFunc replyFunc
+		fmt.Println("HELLO")
+		fmt.Printf("%#v\n", op)
 		switch op := op.(type) {
 
 		case *UpdateOp:
@@ -614,6 +622,50 @@ func (socket *MongoSocket) Query(ops ...interface{}) (err error) {
 				if err != nil {
 					return err
 				}
+			}
+		case *MsgOp:
+			fmt.Println("writing message op")
+			buf = addHeader(buf, dbMessage)
+			buf = addInt32(buf, int32(op.Flags))
+			for _, section := range op.Sections {
+				// READ THE PAYLOAD TYPE
+				// IF IT'S THE SHORT KIND, WRITE THAT OUT
+				if section.PayloadType == uint8(0) {
+					buf = append(buf, byte(0))
+					buf, err = addBSON(buf, section)
+					if err != nil {
+						return err
+					}
+				} else {
+					// Write the payload type
+					buf = append(buf, byte(0))
+					payload, ok := section.Data.(PayloadType1)
+					if !ok {
+						panic("incorrect type given for payload")
+					}
+
+					//Write out the size
+					buf = addInt32(buf, payload.Size)
+					//Write out the identifier
+					buf = addCString(buf, payload.Identifier)
+					//Write out the docs
+					buf, err = addBSON(buf, payload.Docs)
+					if err != nil {
+						return err
+					}
+				}
+				/*
+					type MsgOp struct {
+						Flags    uint32
+						Sections []MsgSection
+						Checksum uint32
+					}
+
+					type MsgSection struct {
+						PayloadType uint8
+						Data        interface{}
+					}
+				*/
 			}
 
 		default:
