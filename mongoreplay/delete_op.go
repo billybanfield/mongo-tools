@@ -83,7 +83,6 @@ func (op *DeleteOp) FromReader(r io.Reader) error {
 	}
 	op.Selector = &bson.D{}
 	err = bson.Unmarshal(selectorAsSlice, op.Selector)
-
 	if err != nil {
 		return err
 	}
@@ -97,6 +96,9 @@ func (op *DeleteOp) FromSlice(s []byte) error {
 	op.Collection = name
 	offset += length
 
+	if len(s) < offset+4 {
+		return fmt.Errorf("unable to parse Delete: slice doesn't contain flags")
+	}
 	op.Flags = uint32(getInt32(s[offset:], 0))
 	offset += 4
 

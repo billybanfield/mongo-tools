@@ -98,6 +98,9 @@ func (op *ReplyOp) FromReader(r io.Reader) error {
 
 // FromSlice extracts data from a serialized ReplyOp into its concrete structure.
 func (op *ReplyOp) FromSlice(s []byte) error {
+	if len(s) < 20 {
+		return fmt.Errorf("cannot parse ReplyOp: slice too small")
+	}
 	sliceOffset := 0
 	op.Flags = uint32(getInt32(s[:], 0))
 	op.CursorId = getInt64(s[:], 4)

@@ -31,6 +31,7 @@ type stream struct {
 	opTimeStamp      time.Time
 	state            streamState
 	netFlow, tcpFlow gopacket.Flow
+	resyncing        bool
 }
 
 // Reassembled receives the new slice of reassembled data and forwards it to the
@@ -256,6 +257,7 @@ func (bidi *bidi) handleStreamStateBeforeMessage(stream *stream) {
 	stream.opTimeStamp = stream.reassembly.Seen
 	copy(stream.op.Body, stream.reassembly.Bytes)
 	stream.reassembly.Bytes = stream.reassembly.Bytes[16:]
+	stream.resyncing = true
 	return
 }
 func (bidi *bidi) handleStreamStateInMessage(stream *stream) {
@@ -275,6 +277,15 @@ func (bidi *bidi) handleStreamStateInMessage(stream *stream) {
 	if len(stream.op.Body) == int(stream.op.Header.MessageLength) {
 		// TODO maybe remember if we were recently in streamStateOutOfSync,
 		// and if so, parse the raw op here.
+
+		if stream.resyncing {
+			_, err := stream.op.Parse()
+			if err != nil {
+				stream.state = streamStateOutOfSync
+				return
+			}
+			stream.resyncing = false
+		}
 
 		bidi.opStream.unorderedOps <- RecordedOp{
 			RawOp:             *stream.op,

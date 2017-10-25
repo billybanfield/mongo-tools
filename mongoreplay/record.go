@@ -159,7 +159,6 @@ func (record *RecordCommand) Execute(args []string) error {
 func Record(ctx *packetHandlerContext,
 	playbackWriter *PlaybackFileWriter,
 	noShortenReply bool) error {
-	// make an encoder
 
 	ch := make(chan error)
 	go func() {

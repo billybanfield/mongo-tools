@@ -88,6 +88,9 @@ func (op *UpdateOp) FromReader(r io.Reader) error {
 	if _, err := io.ReadFull(r, b[:]); err != nil { // grab the flags
 		return err
 	}
+	if err != nil {
+		return err
+	}
 	op.Flags = uint32(getInt32(b[:], 0))
 
 	selectorAsSlice, err := ReadDocument(r)
@@ -118,6 +121,9 @@ func (op *UpdateOp) FromSlice(s []byte) error {
 	op.Collection = name
 	offset += length
 
+	if len(s) < offset+4 {
+		return fmt.Errorf("unable to parse Update: slice doesn't contain flags")
+	}
 	op.Flags = uint32(getInt32(s[offset:], 0))
 	offset += 4
 

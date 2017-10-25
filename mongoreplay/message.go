@@ -49,6 +49,7 @@ func (m MsgHeader) ToWire() []byte {
 }
 
 // FromWire reads the wirebytes into this object
+// This function can panic.
 func (m *MsgHeader) FromWire(b []byte) {
 	m.MessageLength = getInt32(b, 0)
 	m.RequestID = getInt32(b, 4)

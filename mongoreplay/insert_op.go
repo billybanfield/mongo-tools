@@ -88,8 +88,10 @@ func (op *InsertOp) FromReader(r io.Reader) error {
 }
 func (op *InsertOp) FromSlice(s []byte) error {
 	offset := 0
+	if len(s) < offset+4 {
+		return fmt.Errorf("unable to parse Insert: slice doesn't contain flags")
+	}
 	op.Flags = uint32(getInt32(s[:], 0))
-
 	offset += 4
 	name, length := readCStringWithLength(s[offset:])
 	op.Collection = name

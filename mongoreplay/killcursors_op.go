@@ -65,11 +65,18 @@ func (op *KillCursorsOp) FromReader(r io.Reader) error {
 
 func (op *KillCursorsOp) FromSlice(s []byte) error {
 	offset := 4
+	if len(s) < offset+4 {
+		return fmt.Errorf("unable to parse KillCursor: slice doesn't contain numCursors")
+	}
 	numCursors := uint32(getInt32(s[offset:], 0))
 	offset += 4
 	var i uint32
 	for i = 0; i < numCursors; i++ {
-		op.CursorIds = append(op.CursorIds, getInt64(s[offset:], 0))
+		if len(s) < offset+8 {
+			return fmt.Errorf("unable to parse KillCursor: slice not long enough to contain cursor id")
+		}
+		cursorId := getInt64(s[offset:], 0)
+		op.CursorIds = append(op.CursorIds, cursorId)
 		offset += 8
 	}
 	return nil

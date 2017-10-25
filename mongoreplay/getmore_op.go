@@ -86,8 +86,15 @@ func (op *GetMoreOp) FromSlice(s []byte) error {
 	name, length := readCStringWithLength(s[offset:])
 	op.Collection = name
 	offset += length
+	if len(s) < offset+4 {
+		return fmt.Errorf("unable to parse GetMore: slice doesn't contain limit")
+	}
 	op.Limit = getInt32(s[offset:], 0)
-	op.CursorId = getInt64(s[offset:], 4)
+	offset += 4
+	if len(s) < offset+8 {
+		return fmt.Errorf("unable to parse GetMore: slice doesn't contain CursorId")
+	}
+	op.CursorId = getInt64(s[offset:], 0)
 	return nil
 }
 

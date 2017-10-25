@@ -152,24 +152,33 @@ func (op *QueryOp) FromReader(r io.Reader) error {
 
 func (op *QueryOp) FromSlice(s []byte) error {
 	sliceOffset := 0
+	if len(s) < sliceOffset+4 {
+		return fmt.Errorf("unable to parse Query: slice doesn't contain flags")
+	}
 	op.Flags = mgo.QueryOpFlags(getInt32(s[:4], 0))
 	sliceOffset += 4
 	name, length := readCStringWithLength(s[sliceOffset:])
 	sliceOffset += length
 	op.Collection = string(name)
 
+	if len(s) < sliceOffset+4 {
+		return fmt.Errorf("unable to parse Query: slice doesn't contain skip")
+	}
 	op.Skip = getInt32(s[sliceOffset:], 0)
-	op.Limit = getInt32(s[sliceOffset:], 4)
-	sliceOffset += 8
-
-	querySize := getInt32(s[sliceOffset:], 0)
+	sliceOffset += 4
+	if len(s) < sliceOffset+4 {
+		return fmt.Errorf("unable to parse Query: slice doesn't contain limit")
+	}
+	op.Limit = getInt32(s[sliceOffset:], 0)
+	sliceOffset += 4
 
 	op.Query = &bson.Raw{}
-	err := bson.Unmarshal(s[sliceOffset:sliceOffset+int(querySize)], op.Query)
+	docLen, err := FetchDocument(s, sliceOffset, op.Query)
 	if err != nil {
 		return err
 	}
-	sliceOffset += int(querySize)
+
+	sliceOffset += int(docLen)
 	if len(s) > sliceOffset {
 		op.Selector = &bson.Raw{}
 		_, err = FetchDocument(s, sliceOffset, op.Selector)

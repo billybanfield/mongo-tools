@@ -84,11 +84,21 @@ func (op *RawOp) ShortenReply() error {
 			//there are no reply docs
 			return nil
 		}
+		if len(op.Body) < int(20+MsgHeaderLen+4) {
+			return fmt.Errorf("unable to shorten reply: body not long enough")
+		}
 		firstDocSize := getInt32(op.Body, 20+MsgHeaderLen)
 		if 20+MsgHeaderLen+int(firstDocSize) > len(op.Body) || firstDocSize > maxBSONSize {
 			return fmt.Errorf("the size of the first document is greater then the size of the message")
 		}
+		if len(op.Body) < int(20+MsgHeaderLen+firstDocSize) {
+			return fmt.Errorf("unable to shorten reply: body not long enough")
+		}
 		op.Body = op.Body[0:(20 + MsgHeaderLen + firstDocSize)]
+
+		if len(op.Body) < 4 {
+			return fmt.Errorf("unable to shorten reply: new body not long enough")
+		}
 		setInt32(op.Body, 0, int32(len(op.Body)))
 
 	case OpCodeCommandReply:
@@ -116,8 +126,12 @@ func (op *RawOp) ShortenReply() error {
 			return err
 		}
 
+		if len(op.Body) < 4 {
+			return fmt.Errorf("unable to shorten reply: body not long enough")
+		}
 		// calculate the new sizes for offsets into the new buffer
 		commandReplySize := getInt32(op.Body, MsgHeaderLen)
+
 		newCommandReplySize := getInt32(out, 0)
 		sizeDiff := commandReplySize - newCommandReplySize
 		newSize := op.Header.MessageLength - sizeDiff
@@ -128,6 +142,9 @@ func (op *RawOp) ShortenReply() error {
 		copy(newBody[MsgHeaderLen:], out)
 		copy(newBody[MsgHeaderLen+newCommandReplySize:], op.Body[MsgHeaderLen+commandReplySize:])
 		// update the size of this message in the headers
+		if len(newBody) < 4 {
+			return fmt.Errorf("unable to shorten reply: new body not long enough")
+		}
 		setInt32(newBody, 0, newSize)
 		op.Header.MessageLength = newSize
 		op.Body = newBody
@@ -148,6 +165,11 @@ func (op *RawOp) Parse() (Op, error) {
 		op.Header.FromWire(newMsg)
 		op.Body = newMsg
 	}
+
+	//	if int(op.Header.MessageLength) != len(op.Body) {
+	//		return nil, fmt.Errorf("RawOp Header length and body length do not match. Header: %d--- Body: %d",
+	//			op.Header.MessageLength, len(op.Body))
+	//	}
 
 	var parsedOp Op
 	switch op.Header.OpCode {

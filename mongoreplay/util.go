@@ -70,7 +70,8 @@ func ReadDocument(r io.Reader) (doc []byte, err error) {
 		return
 	}
 
-	size := getInt32(sizeRaw, 0)
+	var size int32
+	size = getInt32(sizeRaw, 0)
 	if size < 5 || size > maximumDocumentSize {
 		err = ErrInvalidSize
 		return
