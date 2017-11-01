@@ -62,6 +62,18 @@ func main() {
 		panic(err)
 	}
 
+	_, err = parser.AddCommand("client", "Run mongoreplay as client to server", "",
+		&mongoreplay.ClientCommand{GlobalOpts: &opts})
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = parser.AddCommand("server", "Run mongoreplay as server", "",
+		&mongoreplay.ServerCommand{GlobalOpts: &opts})
+	if err != nil {
+		panic(err)
+	}
+
 	_, err = parser.Parse()
 
 	if err != nil {

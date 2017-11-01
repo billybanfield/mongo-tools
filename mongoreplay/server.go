@@ -1,116 +1,80 @@
 package mongoreplay
 
-/*
 import (
 	"fmt"
 	"io"
-	"os"
-	"runtime/pprof"
+	"net/http"
 	"time"
 
 	mgo "github.com/10gen/llmgo"
 )
 
-// PlayCommand stores settings for the mongoreplay 'play' subcommand
-type PlayCommand struct {
+// ServerCommand stores settings for the mongoreplay 'Server' subcommand
+type ServerCommand struct {
 	GlobalOpts *Options `no-flag:"true"`
 	StatOptions
-	PlaybackFile string  `description:"path to the playback file to play from" short:"p" long:"playback-file" required:"yes"`
-	Speed        float64 `description:"multiplier for playback speed (1.0 = real-time, .5 = half-speed, 3.0 = triple-speed, etc.)" long:"speed" default:"1.0"`
-	URL          string  `short:"h" long:"host" description:"Location of the host to play back against" default:"mongodb://localhost:27017"`
-	Repeat       int     `long:"repeat" description:"Number of times to play the playback file" default:"1"`
-	QueueTime    int     `long:"queueTime" description:"don't queue ops much further in the future than this number of seconds" default:"15"`
-	NoPreprocess bool    `long:"no-preprocess" description:"don't preprocess the input file to premap data such as mongo cursorIDs"`
-	Gzip         bool    `long:"gzip" description:"decompress gzipped input"`
-	Collect      string  `long:"collect" description:"Stat collection format; 'format' option uses the --format string" choice:"json" choice:"format" choice:"none" default:"none"`
-	FullSpeed    bool    `long:"fullSpeed" description:"run the playback as fast as possible"`
+	Speed     float64 `description:"multiplier for playback speed (1.0 = real-time, .5 = half-speed, 3.0 = triple-speed, etc.)" long:"speed" default:"1.0"`
+	URL       string  `short:"h" long:"host" description:"Location of the host to play back against" default:"mongodb://localhost:27017"`
+	Collect   string  `long:"collect" description:"Stat collection format; 'format' option uses the --format string" choice:"json" choice:"format" choice:"none" default:"none"`
+	FullSpeed bool    `long:"fullSpeed" description:"run the playback as fast as possible"`
 }
 
-const queueGranularity = 1000
-
 // ValidateParams validates the settings described in the PlayCommand struct.
-func (play *PlayCommand) ValidateParams(args []string) error {
+func (server *ServerCommand) ValidateParams(args []string) error {
 	switch {
 	case len(args) > 0:
 		return fmt.Errorf("unknown argument: %s", args[0])
-	case play.Speed <= 0:
-		return fmt.Errorf("Invalid setting for --speed: '%v'", play.Speed)
-	case play.Repeat < 1:
-		return fmt.Errorf("Invalid setting for --repeat: '%v', value must be >=1", play.Repeat)
+	case server.Speed <= 0:
+		return fmt.Errorf("Invalid setting for --speed: '%v'", server.Speed)
 	}
 	return nil
 }
 
-// Execute runs the program for the 'play' subcommand
-func (play *PlayCommand) Execute(args []string) error {
-	err := play.ValidateParams(args)
+// Execute runs the program for the 'Server' subcommand
+func (server *ServerCommand) Execute(args []string) error {
+	err := server.ValidateParams(args)
 	if err != nil {
 		return err
 	}
-	play.GlobalOpts.SetLogging()
-	if play.GlobalOpts.CPUProfileFname != "" {
-		f, err := os.Create(play.GlobalOpts.CPUProfileFname)
-		if err != nil {
-			panic(err)
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
+	server.GlobalOpts.SetLogging()
 
-	statColl, err := newStatCollector(play.StatOptions, play.Collect, true, true)
+	statColl, err := newStatCollector(server.StatOptions, server.Collect, true, true)
 	if err != nil {
 		return err
 	}
 
-	if play.FullSpeed {
+	if server.FullSpeed {
 		userInfoLogger.Logvf(Always, "Doing playback at full speed")
 	} else {
-		userInfoLogger.Logvf(Always, "Doing playback at %.2fx speed", play.Speed)
+		userInfoLogger.Logvf(Always, "Doing playback at %.2fx speed", server.Speed)
 	}
 
-	playbackFileReader, err := NewPlaybackFileReader(play.PlaybackFile, play.Gzip)
-	if err != nil {
-		return err
-	}
-
-	session, err := mgo.Dial(play.URL)
+	session, err := mgo.Dial(server.URL)
 	if err != nil {
 		return err
 	}
 	session.SetSocketTimeout(0)
 
-	context := NewExecutionContext(statColl, session, &ExecutionOptions{fullSpeed: play.FullSpeed,
-		driverOpsFiltered: playbackFileReader.metadata.DriverOpsFiltered})
+	context := NewExecutionContext(statColl, session, &ExecutionOptions{fullSpeed: server.FullSpeed,
+		driverOpsFiltered: true})
 	session.SetPoolLimit(-1)
 
-	var opChan <-chan *RecordedOp
+	opChan := make(chan *RecordedOp, 100)
 	var errChan <-chan error
 
-	if !play.NoPreprocess {
-		opChan, errChan = playbackFileReader.OpChan(1)
-
-		preprocessMap, err := newPreprocessCursorManager(opChan)
-
-		if err != nil {
-			return fmt.Errorf("PreprocessMap: %v", err)
+	go func() {
+		if err := Server(context, opChan, server.Speed); err != nil {
+			userInfoLogger.Logvf(Always, "Server: %v\n", err)
+			return
 		}
+	}()
+	opChanHTTPHandler := getOpChanHTTPHandler(opChan)
+	h := http.NewServeMux()
 
-		err = <-errChan
-		if err != io.EOF {
-			return fmt.Errorf("OpChan: %v", err)
-		}
-
-		_, err = playbackFileReader.Seek(0, 0)
-		if err != nil {
-			return err
-		}
-		context.CursorIDMap = preprocessMap
-	}
-
-	opChan, errChan = playbackFileReader.OpChan(play.Repeat)
-
-	if err := Play(context, opChan, play.Speed, play.Repeat, play.QueueTime); err != nil {
-		userInfoLogger.Logvf(Always, "Play: %v\n", err)
+	h.HandleFunc("/", opChanHTTPHandler)  // set router
+	err = http.ListenAndServe(":9090", h) // set listen port
+	if err != nil {
+		return err
 	}
 
 	//handle the error from the errchan
@@ -118,23 +82,28 @@ func (play *PlayCommand) Execute(args []string) error {
 	if err != nil && err != io.EOF {
 		userInfoLogger.Logvf(Always, "OpChan: %v", err)
 	}
-	if play.GlobalOpts.MemProfileFname != "" {
-		f, err := os.Create(play.GlobalOpts.MemProfileFname)
-		if err != nil {
-			panic(err)
-		}
-		pprof.WriteHeapProfile(f)
-		f.Close()
-	}
 	return nil
 }
 
-// Play is responsible for playing ops from a RecordedOp channel to the session.
-func Play(context *ExecutionContext,
+func getOpChanHTTPHandler(opChan chan *RecordedOp) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		recordedOp := &RecordedOp{}
+		err := recordedOp.FromReader(r.Body)
+		if err != nil {
+			fmt.Fprintf(w, "error\n")
+			return
+		}
+		fmt.Fprintf(w, "success\n")
+
+		opChan <- recordedOp
+		return
+	}
+}
+
+// Server is responsible for playing ops from a RecordedOp channel to the session.
+func Server(context *ExecutionContext,
 	opChan <-chan *RecordedOp,
-	speed float64,
-	repeat int,
-	queueTime int) error {
+	speed float64) error {
 
 	connectionChans := make(map[int64]chan<- *RecordedOp)
 	var playbackStartTime, recordingStartTime time.Time
@@ -160,20 +129,6 @@ func Play(context *ExecutionContext,
 		scaledDelta := float64(opDelta) / (speed)
 		op.PlayAt = playbackStartTime.Add(time.Duration(int64(scaledDelta)))
 
-		// Every queueGranularity ops make sure that we're no more then
-		// QueueTime seconds ahead Which should mean that the maximum that we're
-		// ever ahead is QueueTime seconds of ops + queueGranularity more ops.
-		// This is so that when we're at QueueTime ahead in the playback file we
-		// don't sleep after every read, and generally read and queue
-		// queueGranularity number of ops at a time and then sleep until the
-		// last read op is QueueTime ahead.
-		if !context.fullSpeed {
-			if opCounter%queueGranularity == 0 {
-				toolDebugLogger.Logvf(DebugHigh, "Waiting to prevent excess buffering with opCounter: %v", opCounter)
-				time.Sleep(op.PlayAt.Add(time.Duration(-queueTime) * time.Second).Sub(time.Now()))
-			}
-		}
-
 		connectionChan, ok := connectionChans[op.SeenConnectionNum]
 		if !ok {
 			connectionID++
@@ -197,9 +152,5 @@ func Play(context *ExecutionContext,
 
 	context.StatCollector.Close()
 	toolDebugLogger.Logvf(Always, "%v ops played back in %v seconds over %v connections", opCounter, time.Now().Sub(playbackStartTime), connectionID)
-	if repeat > 1 {
-		toolDebugLogger.Logvf(Always, "%v ops per generation for %v generations", opCounter/repeat, repeat)
-	}
 	return nil
 }
-*/
